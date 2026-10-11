@@ -132,13 +132,19 @@ public class CloudflareMissionGenerator implements MissionGenerator {
         String path = "/accounts/" + accountId + "/ai/run/" + model;
 
         try {
-            return restClient.post()
+            org.springframework.http.ResponseEntity<String> response = restClient.post()
                     .uri(path)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(aiRequest)
                     .retrieve()
-                    .body(String.class);
+                    .toEntity(String.class);
+
+            int status = response.getStatusCode().value();
+            MediaType contentType = response.getHeaders().getContentType();
+            log.info("Cloudflare Workers AI HTTP response received: status={}, contentType={}", status, contentType);
+
+            return response.getBody();
 
         } catch (HttpStatusCodeException ex) {
             int status = ex.getStatusCode().value();
@@ -181,16 +187,42 @@ public class CloudflareMissionGenerator implements MissionGenerator {
         }
 
         try {
-            return objectMapper.readTree(rawEnvelopeJson);
+            JsonNode rootNode = objectMapper.readTree(rawEnvelopeJson);
+            logEnvelopeDiagnostics(rootNode);
+            return rootNode;
         } catch (JsonProcessingException ex) {
             log.error("Failed to parse Cloudflare Workers AI response envelope as JSON: {}", ex.getMessage());
             throw new AiServiceUnavailableException("Cloudflare Workers AI returned an invalid JSON response envelope.", ex);
         }
     }
 
+    private void logEnvelopeDiagnostics(JsonNode rootNode) {
+        if (rootNode == null) {
+            return;
+        }
+        List<String> topLevelKeys = new ArrayList<>();
+        rootNode.fieldNames().forEachRemaining(topLevelKeys::add);
+        boolean isObject = rootNode.isObject();
+        boolean success = rootNode.path("success").asBoolean(false);
+        int errorsCount = rootNode.path("errors").isArray() ? rootNode.path("errors").size() : 0;
+        int messagesCount = rootNode.path("messages").isArray() ? rootNode.path("messages").size() : 0;
+
+        JsonNode resultNode = rootNode.path("result");
+        String resultNodeType = resultNode.getNodeType().name();
+
+        java.util.Map<String, String> childKeysAndTypes = new java.util.LinkedHashMap<>();
+        if (resultNode.isObject()) {
+            resultNode.fields().forEachRemaining(e -> childKeysAndTypes.put(e.getKey(), e.getValue().getNodeType().name()));
+        }
+
+        log.info("Cloudflare envelope diagnostics: isObject={}, topLevelKeys={}, success={}, errorsCount={}, messagesCount={}, resultNodeType={}, resultKeysAndTypes={}",
+                isObject, topLevelKeys, success, errorsCount, messagesCount, resultNodeType, childKeysAndTypes);
+    }
+
     private void validateCloudflareEnvelopeSuccess(JsonNode rootNode) {
         boolean success = rootNode.path("success").asBoolean(false);
         if (!success) {
+            logEnvelopeDiagnostics(rootNode);
             String errorDetail = extractErrorDetails(rootNode);
             log.warn("Cloudflare Workers AI returned unsuccessful response envelope: {}", errorDetail);
             throw new AiServiceUnavailableException("Cloudflare Workers AI returned an error response: " + errorDetail);
@@ -199,19 +231,72 @@ public class CloudflareMissionGenerator implements MissionGenerator {
 
     private String extractResponseText(JsonNode rootNode) {
         JsonNode resultNode = rootNode.path("result");
+
+        // Case 1: result is missing or null
         if (resultNode.isMissingNode() || resultNode.isNull()) {
-            log.error("Cloudflare Workers AI response envelope missing 'result' object");
+            log.error("Cloudflare response diagnosis: 'result' is missing or null (nodeType={})", resultNode.getNodeType());
             throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result' field.");
         }
 
-        JsonNode responseNode = resultNode.path("response");
-        if (responseNode.isMissingNode() || responseNode.isNull() || !responseNode.isTextual()) {
-            log.error("Cloudflare Workers AI response missing or non-textual 'result.response' property");
-            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result.response' content.");
+        // Case 2: result is a textual value instead of an object
+        if (resultNode.isTextual()) {
+            String text = resultNode.asText();
+            log.info("Cloudflare response diagnosis: 'result' is a textual value instead of an object (length={})", text.length());
+            if (text.isBlank()) {
+                log.error("Cloudflare response diagnosis: 'result' text is blank");
+                throw new AiServiceUnavailableException("Cloudflare Workers AI response contains empty 'result' text.");
+            }
+            return text;
         }
 
+        // Ensure result is an object
+        if (!resultNode.isObject()) {
+            log.error("Cloudflare response diagnosis: 'result' is neither an object nor textual (nodeType={})", resultNode.getNodeType());
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response 'result' has unexpected type: " + resultNode.getNodeType());
+        }
+
+        java.util.Map<String, String> childKeys = new java.util.LinkedHashMap<>();
+        resultNode.fields().forEachRemaining(e -> childKeys.put(e.getKey(), e.getValue().getNodeType().name()));
+
+        // Case 3: result is an object but has no response field
+        if (!resultNode.has("response")) {
+            log.error("Cloudflare response diagnosis: 'result' is an object but has no 'response' field. Available fields: {}", childKeys);
+
+            // Check if alternate documented text field 'text' is present
+            if (resultNode.hasNonNull("text") && resultNode.get("text").isTextual() && !resultNode.get("text").asText().isBlank()) {
+                log.info("Cloudflare response diagnosis: found alternate textual field 'result.text' (length={})", resultNode.get("text").asText().length());
+                return resultNode.get("text").asText();
+            }
+
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result.response' content. Available fields: " + childKeys.keySet());
+        }
+
+        JsonNode responseNode = resultNode.get("response");
+
+        // Case 4: result.response is null
+        if (responseNode == null || responseNode.isNull()) {
+            log.error("Cloudflare response diagnosis: 'result.response' is null");
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result.response' content (null).");
+        }
+
+        // Case 5: result.response is present but not textual
+        if (!responseNode.isTextual()) {
+            log.error("Cloudflare response diagnosis: 'result.response' is present but not textual (nodeType={})", responseNode.getNodeType());
+            if (responseNode.isObject()) {
+                log.info("Cloudflare response diagnosis: 'result.response' is an ObjectNode; extracting JSON content");
+                return responseNode.toString();
+            }
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result.response' content (non-textual type: " + responseNode.getNodeType() + ").");
+        }
+
+        // Case 6: result.response is a non-empty text value
         String rawResponseText = responseNode.asText();
-        log.debug("Cloudflare raw AI output: {}", rawResponseText);
+        if (rawResponseText.isBlank()) {
+            log.error("Cloudflare response diagnosis: 'result.response' is empty or blank text");
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result.response' content (blank).");
+        }
+
+        log.info("Cloudflare response diagnosis: 'result.response' is a non-empty text value (length={})", rawResponseText.length());
         return rawResponseText;
     }
 

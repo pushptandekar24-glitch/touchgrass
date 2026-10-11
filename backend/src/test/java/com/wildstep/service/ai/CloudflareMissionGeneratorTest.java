@@ -401,4 +401,138 @@ class CloudflareMissionGeneratorTest {
         assertEquals(2000, dto.getMessages().get(0).getCode());
         assertEquals("Notice message", dto.getMessages().get(0).getMessage());
     }
+
+    @Test
+    @DisplayName("Should parse Cloudflare response where result is a direct scalar string")
+    void generateMission_ScalarStringResult_Success() {
+        String responseBody = """
+            {
+              "result": "{\\"title\\":\\"Scalar Stroll\\",\\"description\\":\\"Direct scalar string result.\\",\\"tasks\\":[{\\"description\\":\\"Walk outdoors\\",\\"estimatedMinutes\\":5}],\\"bonusTask\\":null}",
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        MissionResponseDto result = generator.generateMission(createSampleRequest());
+
+        assertNotNull(result);
+        assertEquals("Scalar Stroll", result.getTitle());
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should parse Cloudflare response using alternate 'text' field inside result")
+    void generateMission_AlternateTextField_Success() {
+        String responseBody = """
+            {
+              "result": {
+                "text": "{\\"title\\":\\"Alternate Text\\",\\"description\\":\\"Extracted via text property.\\",\\"tasks\\":[{\\"description\\":\\"Breathe fresh air\\",\\"estimatedMinutes\\":5}],\\"bonusTask\\":null}"
+              },
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        MissionResponseDto result = generator.generateMission(createSampleRequest());
+
+        assertNotNull(result);
+        assertEquals("Alternate Text", result.getTitle());
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should parse Cloudflare response when result.response is a structured JSON ObjectNode")
+    void generateMission_ObjectNodeResponse_Success() {
+        String responseBody = """
+            {
+              "result": {
+                "response": {
+                  "title": "Structured Object Mission",
+                  "description": "JSON object node response.",
+                  "tasks": [
+                    {"description": "Sit on bench", "estimatedMinutes": 8}
+                  ],
+                  "bonusTask": null
+                }
+              },
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        MissionResponseDto result = generator.generateMission(createSampleRequest());
+
+        assertNotNull(result);
+        assertEquals("Structured Object Mission", result.getTitle());
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should throw AiServiceUnavailableException when result.response is blank text")
+    void generateMission_BlankResponseText_Throws() {
+        String responseBody = """
+            {
+              "result": {
+                "response": "   "
+              },
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiServiceUnavailableException ex = assertThrows(
+                AiServiceUnavailableException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("missing 'result.response' content"));
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should throw AiServiceUnavailableException when result object has no recognized output field")
+    void generateMission_ResultObjectNoResponseField_Throws() {
+        String responseBody = """
+            {
+              "result": {
+                "unknownField": 123
+              },
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiServiceUnavailableException ex = assertThrows(
+                AiServiceUnavailableException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("missing 'result.response' content"));
+        mockServer.verify();
+    }
 }
