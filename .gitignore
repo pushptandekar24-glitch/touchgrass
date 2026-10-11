@@ -1,0 +1,30 @@
+# Build output & IDE
+target/
+node_modules/
+dist/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Environment & local secrets
+.env
+.env.local
+*.log
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+
+# All local environment files
+.env*
+!.env.example
+
+# Local application configuration
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# Build and test artifacts
+coverage/
+.nyc_output/
