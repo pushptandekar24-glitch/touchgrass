@@ -8,13 +8,15 @@ import {
   TaskCompletionRequest,
 } from '../types';
 
-const API_BASE = '/api';
+const envApiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE = envApiUrl ? envApiUrl.replace(/\/+$/, '') : '/api';
 
 async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const response = await fetch(`${API_BASE}${normalizedPath}`, {
     ...options,
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),

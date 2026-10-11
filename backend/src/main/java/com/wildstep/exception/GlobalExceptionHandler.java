@@ -51,9 +51,9 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
-    @ExceptionHandler(OllamaUnavailableException.class)
-    public ResponseEntity<ApiErrorResponse> handleOllamaUnavailable(
-            OllamaUnavailableException ex, HttpServletRequest request) {
+    @ExceptionHandler({OllamaUnavailableException.class, AiServiceUnavailableException.class})
+    public ResponseEntity<ApiErrorResponse> handleAiUnavailable(
+            RuntimeException ex, HttpServletRequest request) {
         ApiErrorResponse response = new ApiErrorResponse(
                 "AI Inference Service Unavailable",
                 HttpStatus.SERVICE_UNAVAILABLE.value(),

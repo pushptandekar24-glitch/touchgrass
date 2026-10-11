@@ -17,9 +17,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 import java.util.Map;
 
 @Service
+@ConditionalOnProperty(name = "wildstep.ai.provider", havingValue = "ollama", matchIfMissing = true)
 public class OllamaMissionGenerator implements MissionGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(OllamaMissionGenerator.class);

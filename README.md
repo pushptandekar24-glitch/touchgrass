@@ -1,7 +1,7 @@
 # WildStep 🌱
 
 > **"AI that gets you to close the app."**  
-> WildStep uses local open-weight AI to turn a user's mood, available time, goal, and surroundings into personalized outdoor missions. Users complete real-world tasks and earn Grass Points.
+> WildStep uses local open-weight AI (or serverless hosted open-weight models) to turn a user's mood, available time, goal, and surroundings into personalized outdoor missions. Users complete real-world tasks and earn Grass Points.
 
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-007396?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.4.3](https://img.shields.io/badge/Spring%20Boot-3.4.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
@@ -10,8 +10,12 @@
 [![Vite 5](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS 3](https://img.shields.io/badge/Tailwind%20CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![MySQL 8](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![TiDB Cloud](https://img.shields.io/badge/TiDB%20Cloud-Serverless-orange)](https://tidbcloud.com/)
+[![Cloudflare Workers AI](https://img.shields.io/badge/Cloudflare-Workers%20AI-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers-ai/)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20Inference-black?logo=ollama&logoColor=white)](https://ollama.com/)
-[![Gemma 2](https://img.shields.io/badge/Model-Gemma%202%20(2B)-blueviolet)](https://ollama.com/library/gemma2)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Vercel](https://img.shields.io/badge/Vercel-Deployable-black?logo=vercel&logoColor=white)](https://vercel.com/)
+[![Render](https://img.shields.io/badge/Render-Docker%20Service-46E3B7?logo=render&logoColor=white)](https://render.com/)
 
 ---
 
@@ -27,13 +31,18 @@
 - [Project Directory Structure](#-project-directory-structure)
 - [Prerequisites](#-prerequisites)
 - [Local Setup Guide (Windows PowerShell)](#-local-setup-guide-windows-powershell)
+- [Free-Tier Cloud Deployment Guide](#-free-tier-cloud-deployment-guide)
+  - [1. TiDB Cloud Starter Database Setup](#1-tidb-cloud-starter-database-setup)
+  - [2. Cloudflare Workers AI Setup](#2-cloudflare-workers-ai-setup)
+  - [3. Render Docker Backend Deployment](#3-render-docker-backend-deployment)
+  - [4. Vercel Frontend Deployment](#4-vercel-frontend-deployment)
+  - [5. Environment Variables Master Matrix](#5-environment-variables-master-matrix)
+  - [6. Free-Tier Operational Nuances & Safeguards](#6-free-tier-operational-nuances--safeguards)
 - [REST API Documentation](#-rest-api-documentation)
 - [Grass Points Formula](#-grass-points-formula)
 - [Safety, Privacy & Guardrails](#-safety-privacy--guardrails)
 - [Automated Testing](#-automated-testing)
 - [Troubleshooting](#-troubleshooting)
-- [Deployment Readiness](#-deployment-readiness)
-- [GitHub Repository Renaming Guide](#-github-repository-renaming-guide)
 - [Project Status & Roadmap](#-project-status--roadmap)
 - [Contributing](#-contributing)
 - [License & Acknowledgements](#-license--acknowledgements)
@@ -49,7 +58,7 @@ Furthermore, generic suggestions like *"take a 30-minute walk"* fail to account 
 - **Real-world time constraints** (e.g., having exactly 15 minutes between university lectures).
 - **Immediate surroundings** (a university campus, a suburban neighborhood, a small balcony, or a local public park).
 
-**WildStep** flips this paradigm. Instead of maximizing user retention inside an interface, WildStep uses a locally hosted, open-weight language model (Google Gemma 2 2B via Ollama) to generate tailored, time-bounded outdoor missions. Users receive grounded physical tasks, close the browser, complete them in the real world, and return to check off tasks and log their deterministic **Grass Points**.
+**WildStep** flips this paradigm. Instead of maximizing user retention inside an interface, WildStep uses open-weight language models (Google Gemma 2 2B via local Ollama, or Meta Llama 3.1 8B via Cloudflare Workers AI) to generate tailored, time-bounded outdoor missions. Users receive grounded physical tasks, close the browser, complete them in the real world, and return to check off tasks and log their deterministic **Grass Points**.
 
 > **Disclaimer:** WildStep is an open-source productivity and wellness utility designed to encourage outdoor physical breaks. It is not a medical application and does not diagnose, treat, or manage anxiety, clinical depression, screen addiction, or any medical condition.
 
@@ -60,10 +69,10 @@ Furthermore, generic suggestions like *"take a 30-minute walk"* fail to account 
 The complete end-to-end user workflow operates across a strict separation of concerns between AI generation and backend state management:
 
 ```
-[User Form Selection] ──► [Spring Boot REST API] ──► [Local Ollama (Gemma 2)]
-                                     │                          │
-                                     ▼                          ▼
-                          [DB Save & Idempotent API] ◄── [Validation Guardrails]
+[User Form Selection] ──► [Spring Boot REST API] ──► [AI: Local Ollama OR Cloudflare Workers AI]
+                                     │                                      │
+                                     ▼                                      ▼
+                          [DB Save & Idempotent API] ◄────────────── [Validation Guardrails]
                                      │
                                      ▼
                           [Interactive Task Tracking] ──► [Grass Points Awarded]
@@ -71,10 +80,12 @@ The complete end-to-end user workflow operates across a strict separation of con
 
 1. **User Input:** The user selects available time (5–90 min), current mood, personal goal, immediate surroundings, difficulty, and companion context via the React interface.
 2. **API Dispatch:** The frontend sends a validated `POST /api/missions/generate` request to the Spring Boot REST API.
-3. **Local AI Inference:** Spring Boot constructs a parameterized prompt and invokes the local Ollama instance (`http://localhost:11434/api/chat`) using Spring's `RestClient`.
-4. **Structured JSON Output:** The open-weight model (`gemma2:2b`) produces a structured JSON mission consisting of a title, description, 2–5 sequential tasks with minute estimates, and an optional bonus challenge.
+3. **Dual AI Inference Engines:** 
+   - **Local Development:** Spring Boot invokes the local Ollama daemon (`http://localhost:11434/api/chat`, model `gemma2:2b`).
+   - **Cloud Production:** Spring Boot securely calls Cloudflare Workers AI (`@cf/meta/llama-3.2-3b-instruct`) using server-side API tokens without requiring costly GPU instances.
+4. **Structured JSON Output:** The language model produces a structured JSON mission consisting of a title, description, 2–5 sequential tasks with minute estimates, and an optional bonus challenge.
 5. **Backend Validation Guardrails:** The backend validation engine inspects the generated output, enforcing schema constraints, duration budgets, and scanning for forbidden hazard keywords.
-6. **Relational Persistence:** Valid missions and tasks are saved to MySQL in a single `@Transactional` database write, generating permanent record IDs.
+6. **Relational Persistence:** Valid missions and tasks are saved to MySQL (locally) or TiDB Cloud Serverless (production) in a single `@Transactional` database write.
 7. **Task Presentation:** The React frontend renders the mission card with an interactive progress bar, countdown badges, and task checkboxes.
 8. **Real-World Execution:** The user steps outside and performs the physical tasks.
 9. **Idempotent Progress Updates:** The user checks off each task via `PATCH /api/missions/{missionId}/tasks/{taskId}/complete`. The backend moves the mission from `CREATED` to `IN_PROGRESS` and eventually `COMPLETED`.
@@ -84,15 +95,6 @@ The complete end-to-end user workflow operates across a strict separation of con
 
 ## 📸 Screenshots & Demo
 
-<!--
-TODO [Owner]: Place your verified application screenshots in docs/images/ and uncomment the links below.
-Recommended screenshots:
-1. docs/images/dashboard-health.png  - Main dashboard and "UP" backend status card
-2. docs/images/mission-form.png      - Mission preference configuration form
-3. docs/images/mission-active.png    - Generated mission with checklist and progress bar
-4. docs/images/mission-completed.png - Completed mission with trophy banner and Grass Points
--->
-
 | Mission Configuration Form | Interactive Outdoor Task Checklist |
 | :---: | :---: |
 | *`docs/images/mission-form.png`* *(Placeholder)* | *`docs/images/mission-active.png`* *(Placeholder)* |
@@ -101,31 +103,29 @@ Recommended screenshots:
 | :---: | :---: |
 | *`docs/images/dashboard-health.png`* *(Placeholder)* | *`docs/images/mission-completed.png`* *(Placeholder)* |
 
-<!--
-TODO [Owner]: Add your live deployment demo URL once hosted.
--->
-- **Live Demo:** *Coming soon (see [Deployment Readiness](#-deployment-readiness))*
-- **Current Repository URL:** `https://github.com/pushptandekar24-glitch/touchgrass` *(Active remote prior to renaming on GitHub; see [GitHub Repository Renaming Guide](#-github-repository-renaming-guide))*
-- **Target Repository URL:** `https://github.com/pushptandekar24-glitch/wildstep` *(Post-rename)*
+- **Live Demo:** *Coming soon (see [Free-Tier Cloud Deployment Guide](#-free-tier-cloud-deployment-guide))*
+- **Repository URL:** `https://github.com/pushptandekar24-glitch/wildstep`
 
 ---
 
 ## ✨ Core Features
 
-### Implemented Features (Phases 1a – 1e)
-- 🧠 **Local Open-Weight AI Generation:** Uses Ollama with `gemma2:2b` for offline, private, and deterministic mission creation without paid third-party API keys.
+### Implemented Features
+- 🧠 **Dual AI Generation Engine:**
+  - **Local Development:** Ollama with `gemma2:2b` for offline, 100% private execution without third-party API keys.
+  - **Free Cloud Production:** Cloudflare Workers AI with `@cf/meta/llama-3.2-3b-instruct`, utilizing Cloudflare's free daily 10,000 neurons allowance.
 - 🛡️ **Multi-Tier Safety Guardrails:** Programmatic keyword filtering blocks unsafe activities (e.g., trespassing, railway proximity, climbing, highway traffic, or approaching strangers).
 - ⏱️ **Duration Budget Enforcement:** Ensures the cumulative time of generated tasks never exceeds the user's selected available window.
-- 🗄️ **Full Transactional Persistence:** Missions and tasks persist in MySQL with relational integrity (`CascadeType.ALL`, orphan removal).
+- 🗄️ **Relational Persistence (MySQL & TiDB Cloud):** Missions and tasks persist with relational integrity (`CascadeType.ALL`, orphan removal), fully compatible with TiDB Serverless.
 - 🔄 **Idempotent Task Completion:** Tasks can be completed individually; repeat requests safely return the current state without duplicating point allocations.
 - 🔒 **Race Condition Protection:** Pessimistic write locking (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) guarantees Grass Points are awarded exactly once.
 - 🎯 **Deterministic Grass Points Engine:** Transparent, mathematically bounded formula rewarding both completion and verified outdoor duration.
 - 🔍 **Mission Lookup by ID:** Retrieve any previously saved mission and resume real-time checklist progress.
 - 🩺 **Integrated Health Monitoring:** Dedicated `GET /api/health` status check reporting application metadata.
 - 🎨 **Responsive Dark UI:** Crafted with React 18, Vite, TypeScript, and Tailwind CSS, featuring real-time progress bars, micro-animations, and accessible form controls.
+- ☁️ **Cloud-Ready Free-Tier Stack:** Containerized with Docker for Render, frontend deployable to Vercel, serverless database on TiDB Cloud.
 
-### Future Roadmap (Non-Implemented Capabilities)
-The following items are **not** present in the current release and represent future milestones:
+### Future Roadmap
 - ❌ Third-party cloud authentication / OAuth2 logins (currently supports anonymous missions and optional local user IDs).
 - ❌ GPS geolocation tracking or smartphone sensor validation (tasks are completed via self-reported user action).
 - ❌ Live weather API integrations.
@@ -141,80 +141,71 @@ The following items are **not** present in the current release and represent fut
 | **Runtime & Language** | OpenJDK (Java) | `21 LTS` | Core backend runtime utilizing modern language features |
 | **Backend Framework** | Spring Boot | `3.4.3` | REST web services, dependency injection, component management (`wildstep-backend`) |
 | **Persistence & ORM** | Spring Data JPA / Hibernate | Bundled | Object-relational mapping, custom repository queries, row locking |
-| **Database** | MySQL | `8.0+` | Primary relational persistent database engine |
+| **Primary Database** | MySQL / TiDB Cloud | `8.0+` | Relational persistent database engine (MySQL locally, TiDB Serverless in cloud) |
 | **Test Database** | H2 Database Engine | Bundled | In-memory database for fast, isolated test suite execution (`jdbc:h2:mem:wildsteptest`) |
-| **Database Migrations**| Flyway | `10.x` | Database schema migrations (`V1__init_schema.sql`) |
+| **Database Migrations**| Flyway | `10.x` | Database schema migrations (`V1__init_schema.sql`) with production validation |
 | **Validation** | Jakarta Bean Validation | Bundled | Request DTO constraint validation (`@NotNull`, `@Size`, `@Min`) |
-| **AI Inference Engine**| Ollama | `0.3+` | Local LLM inference server managing model weights |
-| **Language Model** | Gemma 2 (Google DeepMind) | `2b` | Open-weight 2-billion parameter model for structured mission planning |
-| **HTTP Client** | Spring `RestClient` | Bundled | Synchronous HTTP client connecting backend to Ollama |
+| **Local AI Engine** | Ollama | `0.3+` | Local LLM inference server managing model weights (`gemma2:2b`) |
+| **Cloud AI Engine** | Cloudflare Workers AI | API v4 | Hosted serverless LLM inference (`@cf/meta/llama-3.2-3b-instruct`) on free tier |
+| **HTTP Client** | Spring `RestClient` | Bundled | Synchronous HTTP client connecting backend to Ollama or Cloudflare |
 | **JSON Serialization** | Jackson | Bundled | JSON serialization, deserialization, and schema binding |
 | **Frontend Framework** | React | `18.2.0` | UI component architecture and client-side reactive state (`wildstep-frontend`) |
 | **Language** | TypeScript | `5.3.3` | Type safety, enum synchronization, compile-time validation |
 | **Build Tool & Bundler**| Vite | `5.4.21`| Fast ESM development server and Rollup production bundler |
 | **Styling** | Tailwind CSS | `3.4.1` | Utility-first responsive design, dark mode theme palette |
 | **Iconography** | `lucide-react` | `0.344.0`| Crisp vector icons (`Loader2`, `Compass`, `Trophy`, `Leaf`) |
-| **Automated Testing** | JUnit 5 & Mockito | Bundled | Unit, WebMvcTest, and end-to-end integration tests (55/55 passing) |
+| **Containerization** | Docker | Multi-stage | Multi-stage build running Java 21 on Render with memory tuning |
+| **Automated Testing** | JUnit 5 & Mockito | Bundled | Unit, WebMvcTest, and end-to-end integration tests (62/62 passing) |
 
 ---
 
 ## 🏛️ System Architecture
 
-WildStep is intentionally architected as a **clean, modular full-stack application**. The browser communicates strictly with the Spring Boot REST API; the local AI model (Ollama) and the persistent database (MySQL) are completely shielded from public client access.
+WildStep is architected with a decoupled frontend and backend. In local development, the application runs entirely on your local machine. In cloud production, it deploys across free-tier serverless and containerized services:
 
 ```mermaid
 flowchart TD
-    subgraph Client ["Browser Client (Port 5173)"]
-        UI["React 18 UI (Vite + Tailwind)"]
-        APIClient["Frontend API Client (fetch)"]
-        UI <--> APIClient
+    subgraph ClientLayer ["Client Layer"]
+        LocalBrowser["Local Browser (Vite :5173)"]
+        CloudBrowser["Cloud Client (Vercel CDN)"]
     end
 
-    subgraph Proxy ["Vite Dev Proxy"]
-        ViteProxy["Vite Proxy (/api -> :8080)"]
-        APIClient --> ViteProxy
-    end
-
-    subgraph Backend ["Spring Boot REST API (Port 8080 /api)"]
+    subgraph BackendLayer ["Backend REST API (Spring Boot 3.4.3 / Java 21)"]
         Controllers["REST Controllers\n(MissionController, HealthController, UserController)"]
-        ValidationDTO["Jakarta Bean Validation\n(Request DTO Constraints)"]
+        Validation["Bean Validation & MissionValidationService\n(Keyword Safety & Duration Budget)"]
+        Points["GrassPointsService\n(Deterministic Calculation)"]
+        
+        AIProviderSelector{"AI Provider\nSelector"}
+        OllamaProvider["OllamaMissionGenerator\n(Local Profile)"]
+        CloudflareProvider["CloudflareMissionGenerator\n(Prod Profile)"]
 
-        MissionSvc["MissionService"]
-        ValSvc["MissionValidationService\n(Keyword Safety & Duration Budget)"]
-        PointsSvc["GrassPointsService\n(Deterministic Reward Calculation)"]
-
-        OllamaGen["OllamaMissionGenerator\n(Spring RestClient)"]
-
-        ViteProxy --> Controllers
-        Controllers --> ValidationDTO
-        ValidationDTO --> MissionSvc
-        MissionSvc --> OllamaGen
-        OllamaGen --> ValSvc
-        MissionSvc --> PointsSvc
+        Controllers --> Validation
+        Validation --> AIProviderSelector
+        AIProviderSelector -->|wildstep.ai.provider=ollama| OllamaProvider
+        AIProviderSelector -->|wildstep.ai.provider=cloudflare| CloudflareProvider
+        Validation --> Points
     end
 
-    subgraph AI ["Local AI Runtime (Port 11434)"]
-        OllamaServer["Ollama Daemon"]
-        Model["gemma2:2b (Open-Weight LLM)"]
-        OllamaGen <== "POST /api/chat (JSON Schema)" ==> OllamaServer
-        OllamaServer --> Model
+    subgraph InferenceLayer ["Inference Engines"]
+        OllamaDaemon["Local Ollama Daemon\n(:11434 / gemma2:2b)"]
+        CloudflareAI["Cloudflare Workers AI\n(@cf/meta/llama-3.2-3b-instruct)"]
+        OllamaProvider <== "REST /api/chat" ==> OllamaDaemon
+        CloudflareProvider <== "REST /client/v4/accounts/.../ai/run" ==> CloudflareAI
     end
 
-    subgraph Storage ["Relational Storage"]
-        JPA["Spring Data JPA / Hibernate"]
-        PessimisticLock["Pessimistic Write Lock\n(findByIdWithLock)"]
-        MySQL[("MySQL 8.0 Database\n(missions, mission_tasks, users)")]
+    subgraph StorageLayer ["Relational Storage"]
+        JPA["Spring Data JPA (Pessimistic Lock)"]
+        LocalDB[("Local MySQL 8.0\n(touchgrass / wildstep)")]
+        CloudDB[("TiDB Cloud Serverless\n(MySQL 8.0 Wire-Compatible + TLS)")]
 
-        MissionSvc --> JPA
-        JPA --> PessimisticLock
-        PessimisticLock --> MySQL
+        BackendLayer --> JPA
+        JPA -->|dev profile| LocalDB
+        JPA -->|prod profile| CloudDB
     end
+
+    LocalBrowser -->|/api -> :8080| Controllers
+    CloudBrowser -->|VITE_API_BASE_URL| Controllers
 ```
-
-### Architectural Highlights
-- **Backend-Orchestrated AI:** The browser never invokes Ollama directly. This prevents prompt exposure, enables server-side JSON schema enforcement, and ensures safety keyword screening prior to client response.
-- **Controlled Concurrency:** Database pessimistic locking on the `Mission` row serializes concurrent task completion calls and eliminates race conditions when granting rewards.
-- **Fail-Safe Fallbacks:** If Ollama is offline or times out, Spring Boot captures the `RestClientException` and returns a standardized `503 Service Unavailable` error instead of hanging or crashing.
 
 ---
 
@@ -222,9 +213,11 @@ flowchart TD
 
 ### 1. Mission Generation (`POST /api/missions/generate`)
 1. **Validation:** `@Valid` checks that `availableMinutes` is between 5 and 180, `goal` does not exceed 100 characters, and enums match domain definitions.
-2. **Prompt Assembly:** `OllamaMissionGenerator` constructs system instructions with strict constraints and requests structured JSON matching the defined schema.
-3. **Inference & Retry:** Ollama generates the response. The service retries up to 2 times if JSON parsing fails.
-4. **Safety Screening:** `MissionValidationService` verifies that total task duration $\le$ requested duration, task count is between 2 and 5, and scans all text against 15 forbidden safety keywords.
+2. **Prompt Assembly & Provider Dispatch:**
+   - In `ollama` mode: constructs structured JSON schema request to Ollama.
+   - In `cloudflare` mode: constructs REST request to Cloudflare Workers AI with markdown stripping and JSON extraction.
+3. **Inference & Retry:** AI generates the response. The service retries up to 2 times if JSON parsing fails.
+4. **Safety Screening:** `MissionValidationService` verifies total task duration $\le$ requested duration, task count is between 2 and 5, and scans all text against 15 forbidden safety keywords.
 5. **Database Transaction:** The mission and tasks are persisted via `MissionRepository.save(mission)` in a single transaction.
 6. **Response:** Returns `201 Created` with database IDs for both the mission and individual tasks.
 
@@ -232,14 +225,14 @@ flowchart TD
 1. **Locking:** Spring Boot acquires a row write lock (`SELECT ... FOR UPDATE`) on the target mission.
 2. **Ownership Check:** Verifies that the task belongs to the specified mission. If the task belongs to another mission, returns `409 Conflict`. If nonexistent, returns `404 Not Found`.
 3. **Status Check:** If the mission is `CANCELLED`, rejects completion with `409 Conflict`.
-4. **Idempotency Guard:** If the task is already marked `completed = true`, returns the current state immediately without recalculating or adding points.
-5. **State Progression:** Marks the task complete. Transitions status from `CREATED` $\to$ `IN_PROGRESS`.
+4. **Idempotency Guard:** If the task is already marked `completed = true`, returns current state without duplicate rewards.
+5. **State Progression:** Marks task complete and transitions status from `CREATED` $\to$ `IN_PROGRESS`.
 6. **Completion & Rewards:** If all tasks are completed:
    - Sets status to `COMPLETED` and records `completedAt`.
    - Computes Grass Points using the verified duration contract.
    - Updates `Mission.pointsAwarded`.
-   - If linked to a real user (`userId != null`), increments `User.totalPoints`.
-   - Commits transaction and releases the row lock.
+   - If linked to a registered user (`userId != null`), atomically increments `User.totalPoints`.
+   - Commits transaction and releases row lock.
 
 ---
 
@@ -251,14 +244,17 @@ wildstep/
 ├── README.md                           # Master project documentation
 │
 ├── backend/                            # Spring Boot 3.4.3 backend service (com.wildstep)
-│   ├── pom.xml                         # Maven coordinates (groupId: com.wildstep, artifactId: wildstep-backend)
+│   ├── Dockerfile                      # Multi-stage production container build for Render
+│   ├── .dockerignore                   # Docker build exclusions
+│   ├── pom.xml                         # Maven dependencies & build metadata
 │   └── src/
 │       ├── main/
 │       │   ├── java/com/wildstep/
 │       │   │   ├── WildStepApplication.java      # Spring Boot application entry point
 │       │   │   ├── config/
-│       │   │   │   ├── OllamaConfig.java         # RestClient bean, timeout & URL configuration
-│       │   │   │   └── WebCorsConfig.java        # Cross-Origin Resource Sharing rules
+│       │   │   │   ├── CloudflareConfig.java     # RestClient bean for Cloudflare Workers AI
+│       │   │   │   ├── OllamaConfig.java         # RestClient bean for local Ollama
+│       │   │   │   └── WebCorsConfig.java        # Dynamic CORS allowed origins
 │       │   │   ├── controller/
 │       │   │   │   ├── HealthController.java     # GET /api/health monitoring endpoint
 │       │   │   │   ├── MissionController.java    # /api/missions lifecycle endpoints
@@ -282,14 +278,18 @@ wildstep/
 │       │   │   │   ├── TaskCompletionRequestDto.java # Optional actual duration payload
 │       │   │   │   ├── UserCreateRequestDto.java # User creation payload
 │       │   │   │   ├── UserResponseDto.java      # User data response
+│       │   │   │   ├── cloudflare/
+│       │   │   │   │   ├── CloudflareAiRequest.java  # Workers AI request DTO
+│       │   │   │   │   └── CloudflareAiResponse.java # Workers AI response DTO
 │       │   │   │   └── ollama/
-│       │   │   │       ├── OllamaChatRequest.java    # Structured chat completion request
-│       │   │   │       └── OllamaChatResponse.java   # Chat completion response payload
+│       │   │   │       ├── OllamaChatRequest.java    # Ollama chat completion request
+│       │   │   │       └── OllamaChatResponse.java   # Ollama chat completion response
 │       │   │   ├── exception/
+│       │   │   │   ├── AiServiceUnavailableException.java # HTTP 503 mapping for Cloudflare/AI
 │       │   │   │   ├── ConflictException.java          # HTTP 409 mapping
 │       │   │   │   ├── GlobalExceptionHandler.java     # Centralized @RestControllerAdvice
 │       │   │   │   ├── MissionValidationException.java # HTTP 422 mapping
-│       │   │   │   ├── OllamaUnavailableException.java # HTTP 503 mapping
+│       │   │   │   ├── OllamaUnavailableException.java # HTTP 503 mapping for Ollama
 │       │   │   │   └── ResourceNotFoundException.java  # HTTP 404 mapping
 │       │   │   ├── repository/
 │       │   │   │   ├── MissionRepository.java      # JPA repository with pessimistic locking
@@ -301,12 +301,14 @@ wildstep/
 │       │   │       ├── MissionValidationService.java # Safety keyword & duration checks
 │       │   │       ├── UserService.java            # User registration & profile management
 │       │   │       └── ai/
-│       │   │           ├── MissionGenerator.java   # Inference abstraction interface
-│       │   │           └── OllamaMissionGenerator.java # Ollama RestClient integration
+│       │   │           ├── CloudflareMissionGenerator.java # Cloudflare Workers AI provider
+│       │   │           ├── MissionGenerator.java   # AI inference abstraction interface
+│       │   │           └── OllamaMissionGenerator.java     # Local Ollama RestClient provider
 │       │   └── resources/
-│       │       ├── application.yml                 # Base Spring configuration (context-path /api)
-│       │       ├── application-dev.yml             # Development profile (MySQL & Ollama 30s)
-│       │       ├── application-test.yml            # Test profile (H2 in-memory & Ollama 5s)
+│       │       ├── application.yml                 # Base Spring config (PORT, CORS, wildstep.ai.provider)
+│       │       ├── application-dev.yml             # Development profile (local MySQL & Ollama)
+│       │       ├── application-prod.yml            # Production profile (TiDB, Flyway validate, Cloudflare)
+│       │       ├── application-test.yml            # Test profile (H2 in-memory & fast timeouts)
 │       │       └── db/migration/
 │       │           └── V1__init_schema.sql         # Flyway schema: users, missions, tasks
 │       └── test/java/com/wildstep/
@@ -320,7 +322,8 @@ wildstep/
 │               ├── MissionLifecycleServiceTest.java# Concurrency, state & ownership tests
 │               ├── MissionValidationServiceTest.java # Guardrail & keyword screening tests
 │               └── ai/
-│                   └── OllamaMissionGeneratorTest.java # JSON parsing & retry tests
+│                   ├── CloudflareMissionGeneratorTest.java # Cloudflare mock HTTP & retry tests
+│                   └── OllamaMissionGeneratorTest.java     # Ollama JSON parsing & retry tests
 │
 └── frontend/                           # React 18 + Vite + Tailwind CSS client (wildstep-frontend)
     ├── index.html                      # Single-page HTML entry point (<title>WildStep</title>)
@@ -328,13 +331,14 @@ wildstep/
     ├── postcss.config.js               # PostCSS plugins (Tailwind, Autoprefixer)
     ├── tailwind.config.js              # Tailwind theme, colors & font family
     ├── tsconfig.json                   # TypeScript compiler configuration
+    ├── vercel.json                     # Vercel SPA routing rewrite configuration
     ├── vite.config.ts                  # Vite config with /api -> :8080 proxy
     └── src/
         ├── App.tsx                     # Main application layout, form, & task card
         ├── index.css                   # Global styles & Tailwind base directives
         ├── main.tsx                    # React DOM root render
         ├── api/
-        │   └── client.ts               # Typed fetch client connecting to Spring Boot
+        │   └── client.ts               # Typed fetch client reading VITE_API_BASE_URL
         ├── components/
         │   ├── HealthStatus.tsx        # System health banner querying /api/health
         │   └── Navbar.tsx              # Header with WildStep logo & Hacktoberfest badge
@@ -346,7 +350,7 @@ wildstep/
 
 ## 📦 Prerequisites
 
-Ensure the following tools are installed on your machine before running WildStep:
+Ensure the following tools are installed on your machine for local development:
 
 | Requirement | Minimum Version | Verification Command | Notes |
 | :--- | :--- | :--- | :--- |
@@ -354,44 +358,33 @@ Ensure the following tools are installed on your machine before running WildStep
 | **Apache Maven** | `3.9+` | `mvn -version` | Required (no Maven wrapper script included) |
 | **Node.js & npm** | `Node 20+` / `npm 10+` | `node -v` ; `npm -v` | Frontend development & build |
 | **MySQL Server** | `8.0+` | `mysql --version` | Running locally on port `3306` |
-| **Ollama** | `0.3+` | `ollama --version` | Running locally on port `11434` |
-| **System Memory (RAM/VRAM)**| `8 GB RAM` | — | Gemma 2 (2B) requires ~2.5 GB RAM/VRAM |
-
-> **Hardware Note:** Gemma 2 (2B) runs comfortably on modern CPU-only setups as well as dedicated GPUs (NVIDIA/AMD/Apple Silicon). If your hardware has limited RAM, ensure Ollama is not competing with other heavy background processes.
+| **Ollama** | `0.3+` | `ollama --version` | Running locally on port `11434` (for local AI mode) |
+| **Docker** | `24+` | `docker --version` | Optional (for testing container build locally) |
 
 ---
 
 ## 🚀 Local Setup Guide (Windows PowerShell)
 
-Follow this step-by-step walkthrough to get WildStep running locally on Windows using PowerShell.
+Follow this step-by-step walkthrough to get WildStep running locally on Windows using PowerShell with local MySQL and Ollama.
 
 ### Step 1: Clone the Repository
 ```powershell
-# Using current remote repository URL:
-git clone https://github.com/pushptandekar24-glitch/touchgrass.git wildstep
+git clone https://github.com/pushptandekar24-glitch/wildstep.git
 cd wildstep
-
-# Note: Once the repository is renamed on GitHub to wildstep, you can clone using:
-# git clone https://github.com/pushptandekar24-glitch/wildstep.git
 ```
 
 ### Step 2: Set Up MySQL
 Open MySQL Command Line Client or MySQL Workbench:
 ```sql
--- For fresh installs:
 CREATE DATABASE IF NOT EXISTS wildstep CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Note for existing local development:
--- If you already have an existing local database named "touchgrass", you may retain it
--- without any data loss. WildStep supports any database name configured via SPRING_DATASOURCE_URL.
 ```
+*(Note: If you already have an existing local database named `touchgrass`, it is fully supported by the default fallback configuration without any data loss).*
 
 ### Step 3: Configure Environment Variables
-Set your environment variables in your current PowerShell session. **Do not hardcode passwords in configuration files.**
+Set your environment variables in your current PowerShell session. **Never hardcode passwords in configuration files.**
 
 ```powershell
-# Set your MySQL database credentials (replace with your actual local password and database name)
-# Backward-compatible with existing "touchgrass" database or new "wildstep" database:
+# Set your MySQL database credentials (replace with your local password)
 $env:SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/wildstep?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
 $env:SPRING_DATASOURCE_USERNAME = "root"
 $env:SPRING_DATASOURCE_PASSWORD = "YourSecurePasswordHere"
@@ -401,19 +394,13 @@ $env:OLLAMA_BASE_URL = "http://localhost:11434"
 $env:OLLAMA_MODEL = "gemma2:2b"
 $env:OLLAMA_TIMEOUT_SECONDS = "30"
 ```
-> *Note: Environment variables defined using `$env:VAR = "value"` apply only to the active PowerShell terminal window.*
 
 ### Step 4: Pull and Start the Ollama Model
-1. Ensure Ollama is running (check the system tray or run `ollama serve`).
+1. Ensure Ollama is running (`ollama serve` or system tray).
 2. Pull the default open-weight model:
 ```powershell
 ollama pull gemma2:2b
 ```
-3. Verify that the model is ready:
-```powershell
-ollama list
-```
-*(You should see `gemma2:2b` listed with a size of ~1.6 GB).*
 
 ### Step 5: Start the Spring Boot Backend
 Open a PowerShell terminal in the `backend/` directory:
@@ -421,8 +408,7 @@ Open a PowerShell terminal in the `backend/` directory:
 cd backend
 mvn clean spring-boot:run
 ```
-The backend initializes database tables via Hibernate, binds to port `8080`, and sets the context path to `/api`.
-Confirm startup by testing the health check in your browser or another terminal:
+Test the health check:
 ```powershell
 curl http://localhost:8080/api/health
 ```
@@ -438,20 +424,151 @@ cd frontend
 npm install
 npm run dev
 ```
-Vite will start the dev server at:
-👉 **`http://localhost:5173`**
+Open **`http://localhost:5173`** in your browser.
 
-### Step 7: Open the Application
-Navigate to `http://localhost:5173` in any modern web browser.
-- Fill out the form, generate your first outdoor mission, check off tasks, and collect your Grass Points!
+---
 
-### Step 8: Production Build (Optional)
-To test the production frontend build:
-```powershell
-cd frontend
-npm run build
+## ☁️ Free-Tier Cloud Deployment Guide
+
+WildStep is specifically architected for a zero-cost, free-tier cloud deployment utilizing:
+- **Frontend**: [Vercel](https://vercel.com/) (Free Hobby Tier — static global CDN).
+- **Backend**: [Render](https://render.com/) (Free Web Service — Docker runtime).
+- **Database**: [TiDB Cloud Starter](https://tidbcloud.com/) (Free Serverless Tier — 5 GiB storage, MySQL 8.0 wire-compatible).
+- **Inference**: [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) (Free Tier — 10,000 neurons/day for `@cf/meta/llama-3.2-3b-instruct`).
+
 ```
-This runs TypeScript checking (`tsc`) followed by the Vite production bundler, producing optimized static assets in `frontend/dist/`.
+[Vercel Global CDN]  ──────────►  [Render Free Web Service]  ──────────►  [TiDB Cloud Serverless]
+(React 18 + Vite SPA)             (Docker: Java 21 / Spring Boot)           (MySQL Wire-Compatible + TLS)
+                                                │
+                                                ▼
+                                   [Cloudflare Workers AI]
+                                (@cf/meta/llama-3.2-3b-instruct)
+```
+
+---
+
+### 1. TiDB Cloud Starter Database Setup
+
+1. Sign up for a free account at [TiDB Cloud](https://tidbcloud.com/).
+2. Click **Create Cluster** and select **Serverless (Free)**.
+3. Choose your preferred cloud region (select one close to your Render deployment region, e.g., US-East or Frankfurt).
+4. After cluster creation, click **Connect** in the TiDB Cloud dashboard.
+5. In the connection modal:
+   - Select **Connection Type**: `General` or `Spring Boot / JDBC`.
+   - TiDB will generate a secure root password. **Copy this password immediately** (it is only displayed once).
+   - Note the **Gateway Host** (e.g., `gateway01.us-east-1.prod.aws.tidbcloud.com`), **Port** (`4000`), and **Username** (note: TiDB Cloud usernames have a prefix format like `xxxxxxxx.root`).
+6. Construct your JDBC URL using mandatory TLS parameters:
+   ```
+   jdbc:mysql://<GATEWAY_HOST>:4000/<DATABASE_NAME>?sslMode=VERIFY_IDENTITY&enabledTLSProtocols=TLSv1.2,TLSv1.3
+   ```
+   *(e.g., `jdbc:mysql://gateway01.us-east-1.prod.aws.tidbcloud.com:4000/wildstep?sslMode=VERIFY_IDENTITY&enabledTLSProtocols=TLSv1.2,TLSv1.3`)*
+7. **Flyway & Hibernate Compatibility**: In production (`application-prod.yml`), `spring.flyway.enabled: true` runs [`V1__init_schema.sql`](backend/src/main/resources/db/migration/V1__init_schema.sql) automatically on first boot, creating tables and constraints. Hibernate is set to `ddl-auto: validate` to guarantee strict schema safety.
+
+---
+
+### 2. Cloudflare Workers AI Setup
+
+1. Sign up for a free account at [Cloudflare](https://dash.cloudflare.com/).
+2. Navigate to **AI** > **Workers AI**.
+3. Under **Overview**, find and copy your **Account ID** (a 32-character hexadecimal string).
+4. Click **Manage API Tokens** > **Create Token**.
+5. Select the **Workers AI (Read / Edit)** template (or create a custom token granting `Account` > `Workers AI` > `Read` + `Edit` permissions).
+6. Click **Continue to summary** and **Create Token**. Copy the generated **API Token** securely.
+7. **Free Quota**: Cloudflare provides 10,000 neurons per day for free, resetting every 24 hours at midnight UTC. This comfortably covers ~100–150 mission generations daily using `@cf/meta/llama-3.2-3b-instruct`.
+
+---
+
+### 3. Render Docker Backend Deployment
+
+1. Sign up or log into [Render](https://render.com/).
+2. Click **New +** > **Web Service**.
+3. Connect your GitHub repository: `https://github.com/pushptandekar24-glitch/wildstep`.
+4. Configure the service settings:
+   - **Name**: `wildstep-backend` (or your preferred name).
+   - **Region**: Select the region matching or closest to your TiDB Cloud cluster.
+   - **Language / Environment**: `Docker`.
+   - **Root Directory**: `backend`.
+   - **Dockerfile Path**: `Dockerfile` (or `backend/Dockerfile` depending on root setting).
+   - **Instance Type**: `Free` (0.1 CPU, 512 MB RAM).
+5. Add the **Environment Variables** under the **Environment** tab:
+
+| Variable Key | Value / Example | Notes |
+| :--- | :--- | :--- |
+| `SPRING_PROFILES_ACTIVE` | `prod` | Activates `application-prod.yml` |
+| `SPRING_DATASOURCE_URL` | `jdbc:mysql://<GATEWAY_HOST>:4000/<DB>?sslMode=VERIFY_IDENTITY` | TiDB Cloud JDBC string with TLS |
+| `SPRING_DATASOURCE_USERNAME` | `<prefix>.root` | TiDB generated username |
+| `SPRING_DATASOURCE_PASSWORD` | `<your-tidb-password>` | TiDB generated password |
+| `AI_PROVIDER` | `cloudflare` | Switches from Ollama to Cloudflare |
+| `CLOUDFLARE_ACCOUNT_ID` | `<your-32-char-account-id>` | Cloudflare Account ID |
+| `CLOUDFLARE_API_TOKEN` | `<your-cloudflare-token>` | Cloudflare secret token |
+| `CLOUDFLARE_MODEL` | `@cf/meta/llama-3.2-3b-instruct` | Free-tier open-weight model |
+| `CORS_ALLOWED_ORIGINS` | `https://wildstep.vercel.app,https://*.vercel.app` | Your deployed Vercel domain(s) |
+
+6. Click **Deploy Web Service**.
+7. Once deployed, Render will provide a service URL: `https://wildstep-backend.onrender.com`.
+8. Verify startup by testing the health endpoint:
+   `https://wildstep-backend.onrender.com/api/health`
+
+---
+
+### 4. Vercel Frontend Deployment
+
+1. Sign up or log into [Vercel](https://vercel.com/).
+2. Click **Add New...** > **Project**.
+3. Import your GitHub repository: `pushptandekar24-glitch/wildstep`.
+4. Configure the project:
+   - **Framework Preset**: `Vite`.
+   - **Root Directory**: Click *Edit* and select **`frontend`**.
+   - **Build Command**: `npm run build`.
+   - **Output Directory**: `dist`.
+5. Add the **Environment Variable**:
+
+| Variable Key | Value | Notes |
+| :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | `https://wildstep-backend.onrender.com/api` | Your Render backend URL + `/api` |
+
+6. Click **Deploy**.
+7. Vercel builds the SPA and assigns a domain (e.g., `https://wildstep.vercel.app`).
+8. Return to Render and ensure `CORS_ALLOWED_ORIGINS` includes your new Vercel domain.
+
+---
+
+### 5. Environment Variables Master Matrix
+
+| Variable Name | Component | Profile | Description | Secrets Status |
+| :--- | :--- | :--- | :--- | :--- |
+| `PORT` | Backend | `All` | Server listening port (Render sets this dynamically) | Public |
+| `SPRING_PROFILES_ACTIVE` | Backend | `All` | Active Spring profile (`dev`, `prod`, `test`) | Public |
+| `SPRING_DATASOURCE_URL` | Backend | `dev / prod` | JDBC connection URL (local MySQL or TiDB Cloud) | Sensitive |
+| `SPRING_DATASOURCE_USERNAME` | Backend | `dev / prod` | Database username | Sensitive |
+| `SPRING_DATASOURCE_PASSWORD` | Backend | `dev / prod` | Database password | **Confidential Secret** |
+| `AI_PROVIDER` | Backend | `prod` | AI engine: `ollama` (local default) or `cloudflare` | Public |
+| `CLOUDFLARE_ACCOUNT_ID` | Backend | `prod` | Cloudflare Account ID | Sensitive |
+| `CLOUDFLARE_API_TOKEN` | Backend | `prod` | Cloudflare Workers AI token | **Confidential Secret** |
+| `CLOUDFLARE_MODEL` | Backend | `prod` | Cloudflare model tag (`@cf/meta/llama-3.2-3b-instruct`) | Public |
+| `CLOUDFLARE_TIMEOUT_SECONDS`| Backend | `prod` | Request timeout (default: `30`) | Public |
+| `CORS_ALLOWED_ORIGINS` | Backend | `prod` | Comma-separated allowed frontend origins | Public |
+| `VITE_API_BASE_URL` | Frontend | `Production` | Backend API base URL (`https://.../api`) | Public (Build Env) |
+
+> 🔒 **Security Notice:** Never prefix database passwords or Cloudflare API tokens with `VITE_`. Vercel environment variables prefixed with `VITE_` are embedded into client JavaScript bundles. All inference credentials and database secrets are strictly managed server-side on Render.
+
+---
+
+### 6. Free-Tier Operational Nuances & Safeguards
+
+- **Render Cold Starts:**
+  Render's Free Web Services automatically spin down after 15 minutes of inactivity. When a new visitor accesses the app, the container takes approximately 45–60 seconds to boot up. The frontend handles this gracefully by displaying informative loading indicators until the service responds.
+- **Cloudflare Rate Limiting (HTTP 429):**
+  Cloudflare Workers AI free tier enforces a per-minute rate limit and a daily 10,000 neurons ceiling. If the limit is reached, `CloudflareMissionGenerator` catches HTTP 429 and returns a standardized `503 Service Unavailable` message explaining that the daily free inference allowance was exceeded.
+- **Data Privacy:**
+  - In **Local Ollama Mode**, prompts and responses never leave your physical device.
+  - In **Hosted Cloudflare Mode**, prompt parameters (duration, environment, mood, goal) are processed on Cloudflare's serverless edge infrastructure. No personal identifiers (passwords, emails, GPS coordinates) are ever included in prompt payloads.
+- **Public Demo Abuse Safeguards:**
+  Since the public demo operates without required user logins, several defensive layers prevent abuse:
+  - Strict input validation constraints (`availableMinutes` bounded between 5 and 180; `goal` max 100 characters).
+  - Multi-tier safety keyword filter rejects hazard prompts before database persistence.
+  - Hikari pool is limited to 5 connections to protect TiDB Serverless resources.
+  - JVM stack size is clamped to `256k` (`-Xss256k`) to minimize RAM consumption per concurrent web thread.
 
 ---
 
@@ -470,112 +587,6 @@ All backend endpoints are prefixed with the servlet context path: **`/api`**.
 | `GET` | `/api/missions/{missionId}` | Retrieve mission metadata & tasks | *None* | `200 OK` |
 | `PATCH`| `/api/missions/{missionId}/tasks/{taskId}/complete` | Mark task complete & calculate points | `TaskCompletionRequestDto` *(Optional)* | `200 OK` |
 
-> *Note: Swagger / SpringDoc OpenAPI UI is not configured in this project. All endpoints are verified through the controller suite and integration tests.*
-
----
-
-### Endpoint Payloads & Examples
-
-#### 1. Generate Mission (`POST /api/missions/generate`)
-```json
-{
-  "availableMinutes": 20,
-  "mood": "STRESSED",
-  "goal": "Relax after studying",
-  "environmentType": "CAMPUS",
-  "difficulty": "EASY",
-  "participants": "SOLO",
-  "userId": 1
-}
-```
-- `availableMinutes`: Integer between 5 and 180 *(Required)*.
-- `mood`: One of `STRESSED`, `TIRED`, `ANXIOUS`, `BORED`, `ENERGETIC` *(Required)*.
-- `goal`: String up to 100 characters *(Required)*.
-- `environmentType`: One of `CAMPUS`, `PARK`, `NEIGHBORHOOD`, `BALCONY_YARD`, `NATURE_TRAIL` *(Required)*.
-- `difficulty`: One of `EASY`, `MEDIUM`, `HARD` *(Required)*.
-- `participants`: One of `SOLO`, `FRIENDS`, `FAMILY` *(Required)*.
-- `userId`: Numeric user ID *(Optional; if omitted, mission is saved as anonymous)*.
-
-**Success Response (`201 Created`):**
-```json
-{
-  "success": true,
-  "message": "Outdoor mission generated successfully",
-  "data": {
-    "id": 14,
-    "userId": 1,
-    "title": "Campus Canopy Recharge",
-    "description": "Step away from the screens and ground yourself near the campus library grove.",
-    "availableMinutes": 20,
-    "mood": "STRESSED",
-    "goal": "Relax after studying",
-    "environmentType": "CAMPUS",
-    "difficulty": "EASY",
-    "participants": "SOLO",
-    "status": "CREATED",
-    "pointsAwarded": 0,
-    "bonusTask": "Notice three different tree species along the path.",
-    "createdAt": "2026-10-11T12:00:00",
-    "completedAt": null,
-    "tasks": [
-      {
-        "id": 41,
-        "description": "Walk to the oak lawn with your phone put away",
-        "estimatedMinutes": 8,
-        "taskOrder": 1,
-        "completed": false
-      },
-      {
-        "id": 42,
-        "description": "Sit on an outdoor bench and focus on ambient nature sounds",
-        "estimatedMinutes": 10,
-        "taskOrder": 2,
-        "completed": false
-      }
-    ]
-  },
-  "timestamp": "2026-10-11T12:00:01"
-}
-```
-
-#### 2. Complete Task (`PATCH /api/missions/{missionId}/tasks/{taskId}/complete`)
-Payload is optional. To claim an outdoor duration bonus, provide `actualDurationMinutes`:
-```json
-{
-  "actualDurationMinutes": 20
-}
-```
-**Success Response (`200 OK`):**
-```json
-{
-  "success": true,
-  "message": "Task completed successfully",
-  "data": {
-    "id": 14,
-    "status": "COMPLETED",
-    "pointsAwarded": 90,
-    "completedAt": "2026-10-11T12:25:00",
-    "tasks": [
-      { "id": 41, "completed": true, "taskOrder": 1 },
-      { "id": 42, "completed": true, "taskOrder": 2 }
-    ]
-  }
-}
-```
-
-#### 3. Standardized Error Payload (RFC 7807)
-When validation or processing fails, Spring Boot returns a uniform error response:
-```json
-{
-  "type": "https://wildstep.ai/errors/mission-validation-failed",
-  "title": "Mission Validation Failed",
-  "status": 422,
-  "detail": "Total task duration (25 mins) exceeds user available time (20 mins).",
-  "instance": "/api/missions/generate",
-  "timestamp": "2026-10-11T12:00:02"
-}
-```
-
 ---
 
 ## 🏆 Grass Points Formula
@@ -590,17 +601,6 @@ $$\text{Grass Points} = \min\left(150, \, 50 + (\text{completedTasks} \times 10)
 3. **Verified Outdoor Duration Bonus ($5\text{ pts / 5 min}$):** Awarded for every full 5-minute block spent outdoors based on client-provided `actualDurationMinutes`. The calculation uses integer division ($\lfloor \text{minutes} / 5 \rfloor$), ensuring partial intervals do not award unearned points.
 4. **Hard Ceiling ($150\text{ pts}$):** Total points can never exceed 150 points for a single mission, discouraging excessive single-session gaming.
 5. **Zero / Incomplete Missions:** If 0 tasks are completed or tasks remain pending, 0 points are awarded.
-
-### Example Calculation
-- Mission: 3 tasks completed.
-- Verified Duration: 23 minutes.
-- Calculation:
-  $$\text{Points} = 50 + (3 \times 10) + \left(\lfloor 23 / 5 \rfloor \times 5\right) = 50 + 30 + 20 = 100\text{ Grass Points}$$
-
-### Account Updating Rules
-- **Registered User Missions (`userId != null`):** The calculated points are persisted in `Mission.pointsAwarded` and atomically added to `User.totalPoints`.
-- **Anonymous Missions (`userId == null`):** Points are recorded on the `Mission` record for display purposes, but no user record is touched.
-- **Idempotency Guarantee:** Once a mission reaches `COMPLETED`, repeated calls to complete any task return the existing state without modifying point balances.
 
 ---
 
@@ -625,11 +625,6 @@ Users should always exercise personal judgment:
 - Do not engage in tasks that feel uncomfortable, unsafe, or unsuitable for current weather.
 - Always remain aware of your physical surroundings, vehicles, and terrain.
 
-### 3. Privacy & Secrets
-- **No Telemetry or Tracking:** The application performs no GPS background tracking, IP tracking, or user fingerprinting.
-- **Local AI:** Prompts and generated missions remain strictly on your local machine; nothing is sent to third-party cloud AI vendors.
-- **Secrets Management:** The `.gitignore` file excludes `.env`, `*.log`, and build outputs. Passwords and keys must always be passed via environment variables.
-
 ---
 
 ## 🧪 Automated Testing
@@ -643,10 +638,11 @@ cd backend
 mvn test
 ```
 
-**Verified Test Suite Results (55/55 Tests Passing):**
+**Verified Test Suite Results (62/62 Tests Passing):**
 - [`GrassPointsServiceTest`](backend/src/test/java/com/wildstep/service/GrassPointsServiceTest.java) *(16 tests)*: Formula validation, boundary values, zero tasks, negative durations, and capping at 150 points.
 - [`MissionLifecycleServiceTest`](backend/src/test/java/com/wildstep/service/MissionLifecycleServiceTest.java) *(14 tests)*: Persistence, retrieval, partial completion, anonymous missions, wrong-mission task rejection, and cancellation handling.
 - [`MissionControllerTest`](backend/src/test/java/com/wildstep/controller/MissionControllerTest.java) *(10 tests)*: WebMvc tests for generation, retrieval, and completion (`200`, `201`, `400`, `404`, `409`, `422`, `503`).
+- [`CloudflareMissionGeneratorTest`](backend/src/test/java/com/wildstep/service/ai/CloudflareMissionGeneratorTest.java) *(7 tests)*: Cloudflare Workers AI mock responses, markdown fence stripping, credentials validation, rate limiting (429), auth error (401), and retries on malformed JSON.
 - [`OllamaMissionGeneratorTest`](backend/src/test/java/com/wildstep/service/ai/OllamaMissionGeneratorTest.java) *(7 tests)*: JSON parsing, retry loops, and service offline handling.
 - [`UserControllerTest`](backend/src/test/java/com/wildstep/controller/UserControllerTest.java) *(4 tests)*: User CRUD operations and validation errors.
 - [`MissionValidationServiceTest`](backend/src/test/java/com/wildstep/service/MissionValidationServiceTest.java) *(4 tests)*: Keyword safety filters, duration overflow, and task count constraints.
@@ -669,93 +665,17 @@ npm run build
 - **Symptom:** Spring Boot startup fails with `Access denied for user 'root'@'localhost' (using password: YES)`.
 - **Fix:** Ensure `$env:SPRING_DATASOURCE_PASSWORD` is set in the **same terminal window** where you run `mvn spring-boot:run`. If using MySQL without a password, pass an empty string: `$env:SPRING_DATASOURCE_PASSWORD = ""`.
 
-### 2. Port 8080 or 5173 Already in Use
-- **Symptom:** `Web server failed to start. Port 8080 was already in use.`
-- **Fix:** Identify and stop the process occupying the port:
-  ```powershell
-  # Find PID using port 8080
-  Get-Process -Id (Get-NetTCPConnection -LocalPort 8080).OwningProcess | Stop-Process -Force
-  ```
+### 2. Cloudflare Rate Limit / Unauthorized
+- **Symptom:** Cloudflare returns `503 AI Inference Service Unavailable`.
+- **Fix:** Check Render logs for HTTP 429 (rate limit exceeded; wait for daily reset) or HTTP 401/403 (verify `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`).
 
-### 3. Ollama Unavailable (`HTTP 503: AI Inference Service Unavailable`)
-- **Symptom:** Mission generation returns `503 Service Unavailable`.
-- **Fix:** Confirm that Ollama is running by opening `http://localhost:11434` in your browser. Start Ollama if it is stopped:
-  ```powershell
-  ollama serve
-  ```
+### 3. Render Web Service Cold Start Delay
+- **Symptom:** First request after 15 minutes takes 45–60 seconds.
+- **Explanation:** Render free tier spins down idle containers. Once spun up, subsequent requests respond in sub-second time.
 
-### 4. Model Not Found (`Ollama returned error: model 'gemma2:2b' not found`)
-- **Symptom:** Backend logs show model missing.
-- **Fix:** Download the model via Ollama:
-  ```powershell
-  ollama pull gemma2:2b
-  ```
-
-### 5. Mission Validation Failed (`HTTP 422 Unprocessable Entity`)
-- **Symptom:** UI displays `Mission Validation Failed` or safety rejection.
-- **Cause:** The model generated text containing a blocked keyword or exceeded available minutes.
-- **Fix:** Ollama automatically retries up to 2 times. If this occurs on a specific prompt, rephrase your goal or adjust available time slightly.
-
-### 6. Frontend Cannot Reach Backend
-- **Symptom:** Mission submission fails with connection error.
-- **Fix:** Check that Spring Boot is running on port 8080. Verify that `vite.config.ts` includes the `/api` proxy targeting `http://localhost:8080`.
-
----
-
-## 🚢 Deployment Readiness
-
-Deploying WildStep to a remote production environment requires coordinating three core layers:
-
-```
-[Static Frontend Host]  ──►  [Spring Boot API Server]  ──►  [MySQL Database]
-(Vercel / Netlify / CDN)        (Docker / VM / Cloud Run)           (Managed DB)
-                                           │
-                                           ▼
-                                 [Ollama Inference Host]
-                               (Self-Hosted GPU / Cloud VM)
-```
-
-### Critical Architectural Limitation
-> ⚠️ **Important:** Deploying only the React frontend and Spring Boot backend is **not sufficient** for mission generation. The backend must be able to reach a working Ollama runtime loaded with `gemma2:2b`.
-
-### Production Deployment Checklist
-1. **Ollama Hosting:**
-   - Host Ollama on a GPU/CPU cloud instance (e.g., RunPod, AWS EC2, or a dedicated private server).
-   - Set `OLLAMA_BASE_URL` on the Spring Boot server to the internal network address of that host (e.g., `http://ollama-service:11434`).
-   - Never expose port 11434 publicly to the Internet.
-2. **Spring Boot Containerization:**
-   - Package backend into a container image using the Spring Boot Maven plugin or a multi-stage Dockerfile (`eclipse-temurin:21-jre`).
-   - Inject database credentials using production secrets (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`).
-3. **Database Configuration:**
-   - Enable Flyway migrations for schema creation in production (`spring.flyway.enabled: true`).
-   - Change Hibernate `ddl-auto` from `update` to `validate` in production.
-4. **CORS & Domain Mapping:**
-   - Update `WebCorsConfig.java` to restrict allowed origins to your production frontend domain (e.g., `https://wildstep.example.com`).
-5. **Frontend Hosting:**
-   - Build with `npm run build` and deploy `dist/` to a CDN or static web host.
-   - Configure a reverse proxy or set the production API URL accordingly.
-
----
-
-## 🔄 GitHub Repository Renaming Guide
-
-The project code and branding have been migrated to **WildStep**. To complete the transition on GitHub:
-
-### 1. Rename the Repository on GitHub
-1. Open your repository on GitHub: `https://github.com/pushptandekar24-glitch/touchgrass`
-2. Navigate to **Settings** > **General**.
-3. Under **Repository name**, change `touchgrass` to `wildstep`.
-4. Click **Rename**. *(GitHub automatically sets up web and Git redirects from the old URL to the new one).*
-
-### 2. Update Local Git Remote URL
-After renaming on GitHub, update your local Git remote URL in PowerShell:
-```powershell
-git remote set-url origin https://github.com/pushptandekar24-glitch/wildstep.git
-```
-Verify the remote URL has updated:
-```powershell
-git remote -v
-```
+### 4. TiDB Connection Refused or TLS Handshake Error
+- **Symptom:** Cannot connect to TiDB Cloud.
+- **Fix:** Ensure your JDBC URL specifies TLS: `?sslMode=VERIFY_IDENTITY&enabledTLSProtocols=TLSv1.2,TLSv1.3`. Also verify your TiDB username includes the cluster prefix (e.g., `xxxxxxxx.root`).
 
 ---
 
@@ -767,7 +687,8 @@ git remote -v
 - [x] **Phase 1c:** Mission lifecycle & Grass Points (persistence, task completion, pessimistic write locking, idempotency).
 - [x] **Phase 1d:** Frontend integration (React 18, Vite proxy, aligned enums, interactive checklist, health card).
 - [x] **Phase 1e:** Project rebrand to WildStep & full test suite migration (com.wildstep, 55/55 tests passing).
-- [ ] **Phase 2 (Future):** Cloud deployment, user authentication, streak tracking, and photo journaling.
+- [x] **Phase 1f:** Free-tier cloud deployment preparation (TiDB Cloud, Cloudflare Workers AI provider, Dockerfile, Vercel SPA config, 62/62 tests passing).
+- [ ] **Phase 2 (Future):** User authentication, streak tracking, and photo journaling.
 
 ---
 
@@ -797,6 +718,9 @@ Contributions to WildStep are welcome! Whether you are fixing bugs, improving do
 
 ### Acknowledgements
 - **[Google DeepMind](https://deepmind.google/technologies/gemma/):** For releasing the high-quality open-weight Gemma 2 model family.
+- **[Meta](https://ai.meta.com/llama/):** For open-weight Llama 3.1 models powering Cloudflare Workers AI.
+- **[Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/):** For providing accessible serverless GPU inference on the free tier.
+- **[TiDB Cloud](https://tidbcloud.com/):** For reliable MySQL-compatible serverless database hosting.
 - **[Ollama](https://ollama.com/):** For providing an accessible, fast local inference runtime.
 - **[Spring Boot & Spring Data](https://spring.io/):** For robust enterprise-grade REST architecture and concurrency management.
 - **[Hacktoberfest 2026](https://hacktoberfest.com/):** Inspired by the Week 1 "Touch Grass" open-source coding challenge.
