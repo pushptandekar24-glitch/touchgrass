@@ -348,7 +348,7 @@ export const App: React.FC = () => {
           </div>
 
           {/* Active Mission Display */}
-          <div className="space-y-6">
+          <div className="flex flex-col">
             {!mission ? (
               <div className="flex h-full min-h-80 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center">
                 <div className="mb-4 rounded-full bg-emerald-500/10 p-5">
@@ -547,33 +547,37 @@ export const App: React.FC = () => {
                 </button>
               </div>
             )}
+          </div>
+        </section>
 
-            {/* Retrieve Saved Mission */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 backdrop-blur-sm">
-              <h3 className="mb-1 font-semibold text-slate-200">
+        {/* Retrieve Saved Mission */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 backdrop-blur-sm shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-100">
                 Retrieve a saved mission
               </h3>
-              <p className="mb-3 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-slate-400">
                 Enter any previously saved mission ID to fetch its persistent status and tasks.
               </p>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  value={missionIdInput}
-                  onChange={(e) => setMissionIdInput(e.target.value)}
-                  placeholder="Enter Mission ID (e.g. 1)"
-                  className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
-                />
-                <button
-                  type="button"
-                  onClick={handleRetrieve}
-                  disabled={loading}
-                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 transition"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load'}
-                </button>
-              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
+              <input
+                type="number"
+                min="1"
+                value={missionIdInput}
+                onChange={(e) => setMissionIdInput(e.target.value)}
+                placeholder="Enter Mission ID (e.g. 1)"
+                className="w-full sm:w-56 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+              />
+              <button
+                type="button"
+                onClick={handleRetrieve}
+                disabled={loading}
+                className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 transition shrink-0"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load'}
+              </button>
             </div>
           </div>
         </section>

@@ -3,7 +3,7 @@ import { Compass, Sparkles } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   return (
-    <header className="border-b border-emerald-900/50 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+    <header className="w-full border-b border-emerald-900/50 bg-slate-950/90 backdrop-blur-md relative z-30">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
