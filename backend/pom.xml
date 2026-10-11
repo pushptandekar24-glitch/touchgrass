@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.touchgrass</groupId>
-    <artifactId>touchgrass-backend</artifactId>
+    <groupId>com.wildstep</groupId>
+    <artifactId>wildstep-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>touchgrass-backend</name>
-    <description>TouchGrass AI Spring Boot REST API</description>
+    <name>wildstep-backend</name>
+    <description>WildStep Spring Boot REST API</description>
 
     <properties>
         <java.version>21</java.version>

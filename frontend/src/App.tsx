@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Trees,
   Compass,
   ShieldCheck,
   Cpu,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 
 import { Navbar } from './components/Navbar';
-import { HealthStatus } from './components/HealthStatus';
 import {
   generateMission,
   fetchMission,
@@ -147,13 +145,8 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <Navbar />
 
-      <main className="mx-auto w-full max-w-5xl space-y-10 px-4 py-10 sm:px-6">
-        <section className="space-y-5 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-            <Trees className="h-4 w-4" />
-            Hacktoberfest 2026 · Week 1 Challenge: Touch Grass
-          </div>
-
+      <main className="mx-auto w-full max-w-5xl space-y-8 sm:space-y-10 px-4 py-8 sm:py-10 sm:px-6">
+        <section className="space-y-4 text-center sm:space-y-5">
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
             AI that gets you to{' '}
             <span className="bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
@@ -167,8 +160,6 @@ export const App: React.FC = () => {
             it in the real world, and earn Grass Points.
           </p>
         </section>
-
-        <HealthStatus />
 
         {error && (
           <div
@@ -616,7 +607,7 @@ export const App: React.FC = () => {
       </main>
 
       <footer className="border-t border-slate-900 px-4 py-6 text-center text-xs text-slate-500">
-        TouchGrass AI 🌱 · Open-Source Outdoor Mission Generator · Hacktoberfest 2026
+        WildStep 🌱 · Open-Source Outdoor Mission Generator · Hacktoberfest 2026
       </footer>
     </div>
   );

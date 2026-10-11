@@ -1,7 +1,7 @@
-# TouchGrass AI 🌱
+# WildStep 🌱
 
-> **"AI that gets you to close the app."**
-> An open-weight AI application that transforms your mood, available free time, and surroundings into personalized outdoor missions. Step outside, complete real-world tasks, and earn Grass Points.
+> **"AI that gets you to close the app."**  
+> WildStep uses local open-weight AI to turn a user's mood, available time, goal, and surroundings into personalized outdoor missions. Users complete real-world tasks and earn Grass Points.
 
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-007396?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.4.3](https://img.shields.io/badge/Spring%20Boot-3.4.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
@@ -33,6 +33,7 @@
 - [Automated Testing](#-automated-testing)
 - [Troubleshooting](#-troubleshooting)
 - [Deployment Readiness](#-deployment-readiness)
+- [GitHub Repository Renaming Guide](#-github-repository-renaming-guide)
 - [Project Status & Roadmap](#-project-status--roadmap)
 - [Contributing](#-contributing)
 - [License & Acknowledgements](#-license--acknowledgements)
@@ -48,9 +49,9 @@ Furthermore, generic suggestions like *"take a 30-minute walk"* fail to account 
 - **Real-world time constraints** (e.g., having exactly 15 minutes between university lectures).
 - **Immediate surroundings** (a university campus, a suburban neighborhood, a small balcony, or a local public park).
 
-**TouchGrass AI** flips this paradigm. Instead of maximizing user retention inside an interface, TouchGrass AI uses a locally hosted, open-weight language model (Google Gemma 2 2B via Ollama) to generate tailored, time-bounded outdoor missions. Users receive grounded physical tasks, close the browser, complete them in the real world, and return to check off tasks and log their deterministic **Grass Points**.
+**WildStep** flips this paradigm. Instead of maximizing user retention inside an interface, WildStep uses a locally hosted, open-weight language model (Google Gemma 2 2B via Ollama) to generate tailored, time-bounded outdoor missions. Users receive grounded physical tasks, close the browser, complete them in the real world, and return to check off tasks and log their deterministic **Grass Points**.
 
-> **Disclaimer:** TouchGrass AI is an open-source productivity and wellness utility designed to encourage outdoor physical breaks. It is not a medical application and does not diagnose, treat, or manage anxiety, clinical depression, screen addiction, or any medical condition.
+> **Disclaimer:** WildStep is an open-source productivity and wellness utility designed to encourage outdoor physical breaks. It is not a medical application and does not diagnose, treat, or manage anxiety, clinical depression, screen addiction, or any medical condition.
 
 ---
 
@@ -104,13 +105,14 @@ Recommended screenshots:
 TODO [Owner]: Add your live deployment demo URL once hosted.
 -->
 - **Live Demo:** *Coming soon (see [Deployment Readiness](#-deployment-readiness))*
-- **Repository URL:** `https://github.com/pushptandekar24-glitch/touchgrass`
+- **Current Repository URL:** `https://github.com/pushptandekar24-glitch/touchgrass` *(Active remote prior to renaming on GitHub; see [GitHub Repository Renaming Guide](#-github-repository-renaming-guide))*
+- **Target Repository URL:** `https://github.com/pushptandekar24-glitch/wildstep` *(Post-rename)*
 
 ---
 
 ## ✨ Core Features
 
-### Implemented Features (Phases 1a – 1d)
+### Implemented Features (Phases 1a – 1e)
 - 🧠 **Local Open-Weight AI Generation:** Uses Ollama with `gemma2:2b` for offline, private, and deterministic mission creation without paid third-party API keys.
 - 🛡️ **Multi-Tier Safety Guardrails:** Programmatic keyword filtering blocks unsafe activities (e.g., trespassing, railway proximity, climbing, highway traffic, or approaching strangers).
 - ⏱️ **Duration Budget Enforcement:** Ensures the cumulative time of generated tasks never exceeds the user's selected available window.
@@ -119,7 +121,7 @@ TODO [Owner]: Add your live deployment demo URL once hosted.
 - 🔒 **Race Condition Protection:** Pessimistic write locking (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) guarantees Grass Points are awarded exactly once.
 - 🎯 **Deterministic Grass Points Engine:** Transparent, mathematically bounded formula rewarding both completion and verified outdoor duration.
 - 🔍 **Mission Lookup by ID:** Retrieve any previously saved mission and resume real-time checklist progress.
-- 🩺 **Integrated Health Monitoring:** Dedicated `GET /api/health` status check displayed prominently on the frontend.
+- 🩺 **Integrated Health Monitoring:** Dedicated `GET /api/health` status check reporting application metadata.
 - 🎨 **Responsive Dark UI:** Crafted with React 18, Vite, TypeScript, and Tailwind CSS, featuring real-time progress bars, micro-animations, and accessible form controls.
 
 ### Future Roadmap (Non-Implemented Capabilities)
@@ -137,28 +139,28 @@ The following items are **not** present in the current release and represent fut
 | Layer | Technology | Version | Purpose |
 | :--- | :--- | :--- | :--- |
 | **Runtime & Language** | OpenJDK (Java) | `21 LTS` | Core backend runtime utilizing modern language features |
-| **Backend Framework** | Spring Boot | `3.4.3` | REST web services, dependency injection, component management |
+| **Backend Framework** | Spring Boot | `3.4.3` | REST web services, dependency injection, component management (`wildstep-backend`) |
 | **Persistence & ORM** | Spring Data JPA / Hibernate | Bundled | Object-relational mapping, custom repository queries, row locking |
 | **Database** | MySQL | `8.0+` | Primary relational persistent database engine |
-| **Test Database** | H2 Database Engine | Bundled | In-memory database for fast, isolated test suite execution |
+| **Test Database** | H2 Database Engine | Bundled | In-memory database for fast, isolated test suite execution (`jdbc:h2:mem:wildsteptest`) |
 | **Database Migrations**| Flyway | `10.x` | Database schema migrations (`V1__init_schema.sql`) |
 | **Validation** | Jakarta Bean Validation | Bundled | Request DTO constraint validation (`@NotNull`, `@Size`, `@Min`) |
 | **AI Inference Engine**| Ollama | `0.3+` | Local LLM inference server managing model weights |
 | **Language Model** | Gemma 2 (Google DeepMind) | `2b` | Open-weight 2-billion parameter model for structured mission planning |
-| **HTTP Client** | Spring `RestClient` | Bundled | Non-blocking synchronous HTTP client connecting backend to Ollama |
+| **HTTP Client** | Spring `RestClient` | Bundled | Synchronous HTTP client connecting backend to Ollama |
 | **JSON Serialization** | Jackson | Bundled | JSON serialization, deserialization, and schema binding |
-| **Frontend Framework** | React | `18.2.0` | UI component architecture and client-side reactive state |
+| **Frontend Framework** | React | `18.2.0` | UI component architecture and client-side reactive state (`wildstep-frontend`) |
 | **Language** | TypeScript | `5.3.3` | Type safety, enum synchronization, compile-time validation |
 | **Build Tool & Bundler**| Vite | `5.4.21`| Fast ESM development server and Rollup production bundler |
 | **Styling** | Tailwind CSS | `3.4.1` | Utility-first responsive design, dark mode theme palette |
 | **Iconography** | `lucide-react` | `0.344.0`| Crisp vector icons (`Loader2`, `Compass`, `Trophy`, `Leaf`) |
-| **Automated Testing** | JUnit 5 & Mockito | Bundled | Unit, WebMvcTest, and end-to-end integration tests |
+| **Automated Testing** | JUnit 5 & Mockito | Bundled | Unit, WebMvcTest, and end-to-end integration tests (55/55 passing) |
 
 ---
 
 ## 🏛️ System Architecture
 
-TouchGrass AI is intentionally architected as a **clean, modular full-stack application**. The browser communicates strictly with the Spring Boot REST API; the local AI model (Ollama) and the persistent database (MySQL) are completely shielded from public client access.
+WildStep is intentionally architected as a **clean, modular full-stack application**. The browser communicates strictly with the Spring Boot REST API; the local AI model (Ollama) and the persistent database (MySQL) are completely shielded from public client access.
 
 ```mermaid
 flowchart TD
@@ -244,16 +246,16 @@ flowchart TD
 ## 📁 Project Directory Structure
 
 ```
-touchgrass/
+wildstep/
 ├── .gitignore                          # Git exclusions (build artifacts, logs, .env)
 ├── README.md                           # Master project documentation
 │
-├── backend/                            # Spring Boot 3.4.3 backend service
-│   ├── pom.xml                         # Maven dependencies & build configuration
+├── backend/                            # Spring Boot 3.4.3 backend service (com.wildstep)
+│   ├── pom.xml                         # Maven coordinates (groupId: com.wildstep, artifactId: wildstep-backend)
 │   └── src/
 │       ├── main/
-│       │   ├── java/com/touchgrass/
-│       │   │   ├── TouchGrassApplication.java    # Spring Boot application entry point
+│       │   ├── java/com/wildstep/
+│       │   │   ├── WildStepApplication.java      # Spring Boot application entry point
 │       │   │   ├── config/
 │       │   │   │   ├── OllamaConfig.java         # RestClient bean, timeout & URL configuration
 │       │   │   │   └── WebCorsConfig.java        # Cross-Origin Resource Sharing rules
@@ -307,8 +309,8 @@ touchgrass/
 │       │       ├── application-test.yml            # Test profile (H2 in-memory & Ollama 5s)
 │       │       └── db/migration/
 │       │           └── V1__init_schema.sql         # Flyway schema: users, missions, tasks
-│       └── test/java/com/touchgrass/
-│           ├── TouchGrassApplicationTests.java     # Spring context verification
+│       └── test/java/com/wildstep/
+│           ├── WildStepApplicationTests.java       # Spring context verification
 │           ├── controller/
 │           │   ├── MissionControllerTest.java      # MockMvc WebMvcTests for mission routes
 │           │   └── UserControllerTest.java         # MockMvc WebMvcTests for user routes
@@ -320,9 +322,9 @@ touchgrass/
 │               └── ai/
 │                   └── OllamaMissionGeneratorTest.java # JSON parsing & retry tests
 │
-└── frontend/                           # React 18 + Vite + Tailwind CSS client
-    ├── index.html                      # Single-page HTML entry point
-    ├── package.json                    # Frontend dependencies & npm scripts
+└── frontend/                           # React 18 + Vite + Tailwind CSS client (wildstep-frontend)
+    ├── index.html                      # Single-page HTML entry point (<title>WildStep</title>)
+    ├── package.json                    # Package metadata (name: "wildstep-frontend")
     ├── postcss.config.js               # PostCSS plugins (Tailwind, Autoprefixer)
     ├── tailwind.config.js              # Tailwind theme, colors & font family
     ├── tsconfig.json                   # TypeScript compiler configuration
@@ -335,7 +337,7 @@ touchgrass/
         │   └── client.ts               # Typed fetch client connecting to Spring Boot
         ├── components/
         │   ├── HealthStatus.tsx        # System health banner querying /api/health
-        │   └── Navbar.tsx              # Header with logo, phase tag & challenge label
+        │   └── Navbar.tsx              # Header with WildStep logo & Hacktoberfest badge
         └── types/
             └── index.ts                # TypeScript interfaces aligned with backend DTOs
 ```
@@ -344,7 +346,7 @@ touchgrass/
 
 ## 📦 Prerequisites
 
-Ensure the following tools are installed on your machine before running TouchGrass AI:
+Ensure the following tools are installed on your machine before running WildStep:
 
 | Requirement | Minimum Version | Verification Command | Notes |
 | :--- | :--- | :--- | :--- |
@@ -361,26 +363,36 @@ Ensure the following tools are installed on your machine before running TouchGra
 
 ## 🚀 Local Setup Guide (Windows PowerShell)
 
-Follow this step-by-step walkthrough to get TouchGrass AI running locally on Windows using PowerShell.
+Follow this step-by-step walkthrough to get WildStep running locally on Windows using PowerShell.
 
 ### Step 1: Clone the Repository
 ```powershell
-git clone https://github.com/pushptandekar24-glitch/touchgrass.git
-cd touchgrass
+# Using current remote repository URL:
+git clone https://github.com/pushptandekar24-glitch/touchgrass.git wildstep
+cd wildstep
+
+# Note: Once the repository is renamed on GitHub to wildstep, you can clone using:
+# git clone https://github.com/pushptandekar24-glitch/wildstep.git
 ```
 
 ### Step 2: Set Up MySQL
-Open MySQL Command Line Client or MySQL Workbench and create the database:
+Open MySQL Command Line Client or MySQL Workbench:
 ```sql
-CREATE DATABASE IF NOT EXISTS touchgrass CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- For fresh installs:
+CREATE DATABASE IF NOT EXISTS wildstep CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Note for existing local development:
+-- If you already have an existing local database named "touchgrass", you may retain it
+-- without any data loss. WildStep supports any database name configured via SPRING_DATASOURCE_URL.
 ```
 
 ### Step 3: Configure Environment Variables
 Set your environment variables in your current PowerShell session. **Do not hardcode passwords in configuration files.**
 
 ```powershell
-# Set your MySQL database credentials (replace with your actual local password)
-$env:SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/touchgrass?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+# Set your MySQL database credentials (replace with your actual local password and database name)
+# Backward-compatible with existing "touchgrass" database or new "wildstep" database:
+$env:SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/wildstep?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
 $env:SPRING_DATASOURCE_USERNAME = "root"
 $env:SPRING_DATASOURCE_PASSWORD = "YourSecurePasswordHere"
 
@@ -416,7 +428,7 @@ curl http://localhost:8080/api/health
 ```
 **Expected response:**
 ```json
-{"success":true,"message":"Backend service operational","data":{"status":"UP","application":"TouchGrass AI","phase":"Phase 1a Foundation"}}
+{"success":true,"message":"Backend service operational","data":{"status":"UP","application":"WildStep","phase":"Phase 1a Foundation"}}
 ```
 
 ### Step 6: Start the React Frontend
@@ -431,8 +443,7 @@ Vite will start the dev server at:
 
 ### Step 7: Open the Application
 Navigate to `http://localhost:5173` in any modern web browser.
-- Verify the green **Backend API System Status: UP** badge.
-- Fill out the form, generate your first mission, check off tasks, and collect your Grass Points!
+- Fill out the form, generate your first outdoor mission, check off tasks, and collect your Grass Points!
 
 ### Step 8: Production Build (Optional)
 To test the production frontend build:
@@ -556,7 +567,7 @@ Payload is optional. To claim an outdoor duration bonus, provide `actualDuration
 When validation or processing fails, Spring Boot returns a uniform error response:
 ```json
 {
-  "type": "https://touchgrass.ai/errors/mission-validation-failed",
+  "type": "https://wildstep.ai/errors/mission-validation-failed",
   "title": "Mission Validation Failed",
   "status": 422,
   "detail": "Total task duration (25 mins) exceeds user available time (20 mins).",
@@ -569,7 +580,7 @@ When validation or processing fails, Spring Boot returns a uniform error respons
 
 ## 🏆 Grass Points Formula
 
-Grass Points are calculated deterministically on the backend via [`GrassPointsService.java`](backend/src/main/java/com/touchgrass/service/GrassPointsService.java). The algorithm rewards both task commitment and real-world outdoor exposure while maintaining an upper ceiling.
+Grass Points are calculated deterministically on the backend via [`GrassPointsService.java`](backend/src/main/java/com/wildstep/service/GrassPointsService.java). The algorithm rewards both task commitment and real-world outdoor exposure while maintaining an upper ceiling.
 
 $$\text{Grass Points} = \min\left(150, \, 50 + (\text{completedTasks} \times 10) + \left\lfloor\frac{\text{actualDurationMinutes}}{5}\right\rfloor \times 5\right)$$
 
@@ -596,7 +607,7 @@ $$\text{Grass Points} = \min\left(150, \, 50 + (\text{completedTasks} \times 10)
 ## 🛡️ Safety, Privacy & Guardrails
 
 ### 1. Safety Guardrails
-Open-weight models can occasionally hallucinate dangerous tasks. TouchGrass AI enforces rigorous, defense-in-depth safety rules:
+Open-weight models can occasionally hallucinate dangerous tasks. WildStep enforces rigorous, defense-in-depth safety rules:
 - **System Prompt Rules:** The LLM is explicitly forbidden from recommending trespassing, restricted zones, dangerous climbing, swimming in rivers, or approaching strangers.
 - **Deterministic Keyword Scanning:** The `MissionValidationService` checks the combined title, description, tasks, and bonus task against a blocklist:
   ```
@@ -633,14 +644,14 @@ mvn test
 ```
 
 **Verified Test Suite Results (55/55 Tests Passing):**
-- [`GrassPointsServiceTest`](backend/src/test/java/com/touchgrass/service/GrassPointsServiceTest.java) *(16 tests)*: Formula validation, boundary values, zero tasks, negative durations, and capping at 150 points.
-- [`MissionLifecycleServiceTest`](backend/src/test/java/com/touchgrass/service/MissionLifecycleServiceTest.java) *(14 tests)*: Persistence, retrieval, partial completion, anonymous missions, wrong-mission task rejection, and cancellation handling.
-- [`MissionControllerTest`](backend/src/test/java/com/touchgrass/controller/MissionControllerTest.java) *(10 tests)*: WebMvc tests for generation, retrieval, and completion (`200`, `201`, `400`, `404`, `409`, `422`, `503`).
-- [`OllamaMissionGeneratorTest`](backend/src/test/java/com/touchgrass/service/ai/OllamaMissionGeneratorTest.java) *(7 tests)*: JSON parsing, retry loops, and service offline handling.
-- [`UserControllerTest`](backend/src/test/java/com/touchgrass/controller/UserControllerTest.java) *(4 tests)*: User CRUD operations and validation errors.
-- [`MissionValidationServiceTest`](backend/src/test/java/com/touchgrass/service/MissionValidationServiceTest.java) *(4 tests)*: Keyword safety filters, duration overflow, and task count constraints.
-- [`MissionLifecycleIntegrationTest`](backend/src/test/java/com/touchgrass/service/MissionLifecycleIntegrationTest.java) *(2 tests)*: Full Spring Boot end-to-end integration tests using in-memory H2 database (`@ActiveProfiles("test")`).
-- [`TouchGrassApplicationTests`](backend/src/test/java/com/touchgrass/TouchGrassApplicationTests.java) *(1 test)*: Spring context loading verification.
+- [`GrassPointsServiceTest`](backend/src/test/java/com/wildstep/service/GrassPointsServiceTest.java) *(16 tests)*: Formula validation, boundary values, zero tasks, negative durations, and capping at 150 points.
+- [`MissionLifecycleServiceTest`](backend/src/test/java/com/wildstep/service/MissionLifecycleServiceTest.java) *(14 tests)*: Persistence, retrieval, partial completion, anonymous missions, wrong-mission task rejection, and cancellation handling.
+- [`MissionControllerTest`](backend/src/test/java/com/wildstep/controller/MissionControllerTest.java) *(10 tests)*: WebMvc tests for generation, retrieval, and completion (`200`, `201`, `400`, `404`, `409`, `422`, `503`).
+- [`OllamaMissionGeneratorTest`](backend/src/test/java/com/wildstep/service/ai/OllamaMissionGeneratorTest.java) *(7 tests)*: JSON parsing, retry loops, and service offline handling.
+- [`UserControllerTest`](backend/src/test/java/com/wildstep/controller/UserControllerTest.java) *(4 tests)*: User CRUD operations and validation errors.
+- [`MissionValidationServiceTest`](backend/src/test/java/com/wildstep/service/MissionValidationServiceTest.java) *(4 tests)*: Keyword safety filters, duration overflow, and task count constraints.
+- [`MissionLifecycleIntegrationTest`](backend/src/test/java/com/wildstep/service/MissionLifecycleIntegrationTest.java) *(2 tests)*: Full Spring Boot end-to-end integration tests using in-memory H2 database (`@ActiveProfiles("test")`).
+- [`WildStepApplicationTests`](backend/src/test/java/com/wildstep/WildStepApplicationTests.java) *(1 test)*: Spring context loading verification.
 
 ### Frontend Production Build (`npm run build`)
 To verify TypeScript compilation and asset bundling:
@@ -648,7 +659,7 @@ To verify TypeScript compilation and asset bundling:
 cd frontend
 npm run build
 ```
-*(Runs `tsc && vite build`; verifies zero TypeScript errors and compiles to `dist/`).*
+*(Runs `tsc && vite build`; verifies zero TypeScript errors and compiles cleanly to `dist/`).*
 
 ---
 
@@ -686,14 +697,14 @@ npm run build
 - **Fix:** Ollama automatically retries up to 2 times. If this occurs on a specific prompt, rephrase your goal or adjust available time slightly.
 
 ### 6. Frontend Cannot Reach Backend
-- **Symptom:** Health check shows `Backend Connection Error`.
+- **Symptom:** Mission submission fails with connection error.
 - **Fix:** Check that Spring Boot is running on port 8080. Verify that `vite.config.ts` includes the `/api` proxy targeting `http://localhost:8080`.
 
 ---
 
 ## 🚢 Deployment Readiness
 
-Deploying TouchGrass AI to a remote production environment requires coordinating three core layers:
+Deploying WildStep to a remote production environment requires coordinating three core layers:
 
 ```
 [Static Frontend Host]  ──►  [Spring Boot API Server]  ──►  [MySQL Database]
@@ -719,10 +730,32 @@ Deploying TouchGrass AI to a remote production environment requires coordinating
    - Enable Flyway migrations for schema creation in production (`spring.flyway.enabled: true`).
    - Change Hibernate `ddl-auto` from `update` to `validate` in production.
 4. **CORS & Domain Mapping:**
-   - Update `WebCorsConfig.java` to restrict allowed origins to your production frontend domain (e.g., `https://touchgrass.example.com`).
+   - Update `WebCorsConfig.java` to restrict allowed origins to your production frontend domain (e.g., `https://wildstep.example.com`).
 5. **Frontend Hosting:**
    - Build with `npm run build` and deploy `dist/` to a CDN or static web host.
    - Configure a reverse proxy or set the production API URL accordingly.
+
+---
+
+## 🔄 GitHub Repository Renaming Guide
+
+The project code and branding have been migrated to **WildStep**. To complete the transition on GitHub:
+
+### 1. Rename the Repository on GitHub
+1. Open your repository on GitHub: `https://github.com/pushptandekar24-glitch/touchgrass`
+2. Navigate to **Settings** > **General**.
+3. Under **Repository name**, change `touchgrass` to `wildstep`.
+4. Click **Rename**. *(GitHub automatically sets up web and Git redirects from the old URL to the new one).*
+
+### 2. Update Local Git Remote URL
+After renaming on GitHub, update your local Git remote URL in PowerShell:
+```powershell
+git remote set-url origin https://github.com/pushptandekar24-glitch/wildstep.git
+```
+Verify the remote URL has updated:
+```powershell
+git remote -v
+```
 
 ---
 
@@ -733,14 +766,14 @@ Deploying TouchGrass AI to a remote production environment requires coordinating
 - [x] **Phase 1b:** AI generation engine (Ollama RestClient, Gemma 2 2B, structured schema, safety screening).
 - [x] **Phase 1c:** Mission lifecycle & Grass Points (persistence, task completion, pessimistic write locking, idempotency).
 - [x] **Phase 1d:** Frontend integration (React 18, Vite proxy, aligned enums, interactive checklist, health card).
-- [ ] **Phase 1e:** Final validation, documentation overhaul, and demo recording *(In Progress)*.
+- [x] **Phase 1e:** Project rebrand to WildStep & full test suite migration (com.wildstep, 55/55 tests passing).
 - [ ] **Phase 2 (Future):** Cloud deployment, user authentication, streak tracking, and photo journaling.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions to TouchGrass AI are welcome! Whether you are fixing bugs, improving documentation, or optimizing prompts, here is how you can help:
+Contributions to WildStep are welcome! Whether you are fixing bugs, improving documentation, or optimizing prompts, here is how you can help:
 
 1. **Fork the Repository:** Create your personal fork on GitHub.
 2. **Create a Feature Branch:**

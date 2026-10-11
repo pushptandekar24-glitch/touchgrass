@@ -10,8 +10,8 @@ export const Navbar: React.FC = () => {
             <Compass className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <span className="font-bold text-lg text-emerald-100 flex items-center gap-1.5">
-              TouchGrass AI <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">Phase 1d</span>
+            <span className="font-bold text-lg text-emerald-100 flex items-center">
+              WildStep
             </span>
             <p className="text-xs text-emerald-400/70">AI that gets you to close the app.</p>
           </div>

@@ -1,4 +1,4 @@
--- TouchGrass AI Initial Database Migration
+-- WildStep Initial Database Migration
 -- Phase 1a Foundation Schema
 
 CREATE TABLE IF NOT EXISTS users (
