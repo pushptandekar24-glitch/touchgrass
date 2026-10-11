@@ -104,7 +104,7 @@ Recommended screenshots:
 TODO [Owner]: Add your live deployment demo URL once hosted.
 -->
 - **Live Demo:** *Coming soon (see [Deployment Readiness](#-deployment-readiness))*
-- **Repository URL:** `https://github.com/your-username/touchgrass` *(replace with your GitHub repository link)*
+- **Repository URL:** `https://github.com/pushptandekar24-glitch/touchgrass`
 
 ---
 
@@ -365,7 +365,7 @@ Follow this step-by-step walkthrough to get TouchGrass AI running locally on Win
 
 ### Step 1: Clone the Repository
 ```powershell
-git clone https://github.com/your-username/touchgrass.git
+git clone https://github.com/pushptandekar24-glitch/touchgrass.git
 cd touchgrass
 ```
 
@@ -569,7 +569,7 @@ When validation or processing fails, Spring Boot returns a uniform error respons
 
 ## 🏆 Grass Points Formula
 
-Grass Points are calculated deterministically on the backend via [`GrassPointsService.java`](file:///backend/src/main/java/com/touchgrass/service/GrassPointsService.java). The algorithm rewards both task commitment and real-world outdoor exposure while maintaining an upper ceiling.
+Grass Points are calculated deterministically on the backend via [`GrassPointsService.java`](backend/src/main/java/com/touchgrass/service/GrassPointsService.java). The algorithm rewards both task commitment and real-world outdoor exposure while maintaining an upper ceiling.
 
 $$\text{Grass Points} = \min\left(150, \, 50 + (\text{completedTasks} \times 10) + \left\lfloor\frac{\text{actualDurationMinutes}}{5}\right\rfloor \times 5\right)$$
 
@@ -633,14 +633,14 @@ mvn test
 ```
 
 **Verified Test Suite Results (55/55 Tests Passing):**
-- [`GrassPointsServiceTest`](file:///backend/src/test/java/com/touchgrass/service/GrassPointsServiceTest.java) *(16 tests)*: Formula validation, boundary values, zero tasks, negative durations, and capping at 150 points.
-- [`MissionLifecycleServiceTest`](file:///backend/src/test/java/com/touchgrass/service/MissionLifecycleServiceTest.java) *(14 tests)*: Persistence, retrieval, partial completion, anonymous missions, wrong-mission task rejection, and cancellation handling.
-- [`MissionControllerTest`](file:///backend/src/test/java/com/touchgrass/controller/MissionControllerTest.java) *(10 tests)*: WebMvc tests for generation, retrieval, and completion (`200`, `201`, `400`, `404`, `409`, `422`, `503`).
-- [`OllamaMissionGeneratorTest`](file:///backend/src/test/java/com/touchgrass/service/ai/OllamaMissionGeneratorTest.java) *(7 tests)*: JSON parsing, retry loops, and service offline handling.
-- [`UserControllerTest`](file:///backend/src/test/java/com/touchgrass/controller/UserControllerTest.java) *(4 tests)*: User CRUD operations and validation errors.
-- [`MissionValidationServiceTest`](file:///backend/src/test/java/com/touchgrass/service/MissionValidationServiceTest.java) *(4 tests)*: Keyword safety filters, duration overflow, and task count constraints.
-- [`MissionLifecycleIntegrationTest`](file:///backend/src/test/java/com/touchgrass/service/MissionLifecycleIntegrationTest.java) *(2 tests)*: Full Spring Boot end-to-end integration tests using in-memory H2 database (`@ActiveProfiles("test")`).
-- [`TouchGrassApplicationTests`](file:///backend/src/test/java/com/touchgrass/TouchGrassApplicationTests.java) *(1 test)*: Spring context loading verification.
+- [`GrassPointsServiceTest`](backend/src/test/java/com/touchgrass/service/GrassPointsServiceTest.java) *(16 tests)*: Formula validation, boundary values, zero tasks, negative durations, and capping at 150 points.
+- [`MissionLifecycleServiceTest`](backend/src/test/java/com/touchgrass/service/MissionLifecycleServiceTest.java) *(14 tests)*: Persistence, retrieval, partial completion, anonymous missions, wrong-mission task rejection, and cancellation handling.
+- [`MissionControllerTest`](backend/src/test/java/com/touchgrass/controller/MissionControllerTest.java) *(10 tests)*: WebMvc tests for generation, retrieval, and completion (`200`, `201`, `400`, `404`, `409`, `422`, `503`).
+- [`OllamaMissionGeneratorTest`](backend/src/test/java/com/touchgrass/service/ai/OllamaMissionGeneratorTest.java) *(7 tests)*: JSON parsing, retry loops, and service offline handling.
+- [`UserControllerTest`](backend/src/test/java/com/touchgrass/controller/UserControllerTest.java) *(4 tests)*: User CRUD operations and validation errors.
+- [`MissionValidationServiceTest`](backend/src/test/java/com/touchgrass/service/MissionValidationServiceTest.java) *(4 tests)*: Keyword safety filters, duration overflow, and task count constraints.
+- [`MissionLifecycleIntegrationTest`](backend/src/test/java/com/touchgrass/service/MissionLifecycleIntegrationTest.java) *(2 tests)*: Full Spring Boot end-to-end integration tests using in-memory H2 database (`@ActiveProfiles("test")`).
+- [`TouchGrassApplicationTests`](backend/src/test/java/com/touchgrass/TouchGrassApplicationTests.java) *(1 test)*: Spring context loading verification.
 
 ### Frontend Production Build (`npm run build`)
 To verify TypeScript compilation and asset bundling:
