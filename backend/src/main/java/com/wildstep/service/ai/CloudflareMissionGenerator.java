@@ -1,10 +1,11 @@
 package com.wildstep.service.ai;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wildstep.dto.MissionGenerateRequestDto;
 import com.wildstep.dto.MissionResponseDto;
 import com.wildstep.dto.cloudflare.CloudflareAiRequest;
-import com.wildstep.dto.cloudflare.CloudflareAiResponse;
 import com.wildstep.exception.AiServiceUnavailableException;
 import com.wildstep.exception.MissionValidationException;
 import org.slf4j.Logger;
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -47,7 +50,7 @@ public class CloudflareMissionGenerator implements MissionGenerator {
     @Override
     public MissionResponseDto generateMission(MissionGenerateRequestDto request) {
         if (accountId == null || accountId.isBlank() || apiToken == null || apiToken.isBlank()) {
-            log.error("Cloudflare Workers AI credentials missing (CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN is empty)");
+            log.error("Cloudflare Workers AI credentials missing (CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN is blank)");
             throw new AiServiceUnavailableException(
                     "Cloudflare Workers AI credentials not configured on the server. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN."
             );
@@ -78,32 +81,25 @@ public class CloudflareMissionGenerator implements MissionGenerator {
 
         while (attempt < MAX_RETRIES) {
             attempt++;
+            log.info("Invoking Cloudflare Workers AI model '{}' (attempt {}/{})", model, attempt, MAX_RETRIES);
+
+            // Step 1: Execute HTTP call and read raw JSON envelope as String
+            String rawEnvelopeJson = executeInferenceRequest(aiRequest);
+
+            // Step 2: Parse raw envelope into Jackson JsonNode (fail-fast on envelope deserialization errors)
+            JsonNode rootNode = parseResponseEnvelope(rawEnvelopeJson);
+
+            // Step 3: Validate Cloudflare API success flag
+            validateCloudflareEnvelopeSuccess(rootNode);
+
+            // Step 4: Extract result.response text
+            String rawAiText = extractResponseText(rootNode);
+
+            // Step 5: Extract and parse mission JSON from model output (retryable if model hallucinates or malforms JSON)
             try {
-                log.info("Invoking Cloudflare Workers AI model '{}' (attempt {}/{})", model, attempt, MAX_RETRIES);
-
-                String path = "/accounts/" + accountId + "/ai/run/" + model;
-
-                CloudflareAiResponse response = restClient.post()
-                        .uri(path)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(aiRequest)
-                        .retrieve()
-                        .body(CloudflareAiResponse.class);
-
-                if (response == null || !response.isSuccess() || response.getResult() == null || response.getResult().getResponse() == null) {
-                    String errorMsg = (response != null && response.getErrors() != null && !response.getErrors().isEmpty())
-                            ? response.getErrors().get(0).getMessage()
-                            : "Empty response body";
-                    throw new MissionValidationException("Cloudflare Workers AI returned unsuccessful response: " + errorMsg);
-                }
-
-                String rawResponse = response.getResult().getResponse();
-                log.debug("Cloudflare raw AI output: {}", rawResponse);
-
-                String jsonContent = extractJsonContent(rawResponse);
+                String jsonContent = extractJsonContent(rawAiText);
                 if (jsonContent == null || jsonContent.isBlank()) {
-                    throw new MissionValidationException("Cloudflare Workers AI output contained no valid JSON structure.");
+                    throw new MissionValidationException("Cloudflare Workers AI response contained no valid JSON structure.");
                 }
 
                 MissionResponseDto missionResponse = objectMapper.readValue(jsonContent, MissionResponseDto.class);
@@ -114,36 +110,14 @@ public class CloudflareMissionGenerator implements MissionGenerator {
                 }
                 return missionResponse;
 
-            } catch (HttpStatusCodeException ex) {
-                int status = ex.getStatusCode().value();
-                log.error("Cloudflare Workers AI HTTP error status {}", status);
-                if (status == 429) {
-                    throw new AiServiceUnavailableException(
-                            "Cloudflare Workers AI daily rate limit or free tier quota exceeded (HTTP 429). Please try again later.",
-                            ex
-                    );
-                } else if (status == 401 || status == 403) {
-                    throw new AiServiceUnavailableException(
-                            "Cloudflare Workers AI authentication failed (HTTP " + status + "). Please verify CLOUDFLARE_API_TOKEN.",
-                            ex
-                    );
-                } else {
-                    throw new AiServiceUnavailableException(
-                            "Cloudflare Workers AI request failed with HTTP " + status + ": " + ex.getStatusText(),
-                            ex
-                    );
-                }
-            } catch (ResourceAccessException ex) {
-                log.error("Cloudflare Workers AI connection timed out or network error: {}", ex.getMessage());
-                throw new AiServiceUnavailableException(
-                        "Cloudflare Workers AI connection timed out or is unreachable. Please check network connectivity.",
-                        ex
-                );
             } catch (MissionValidationException ex) {
-                log.warn("Attempt {} validation error: {}", attempt, ex.getMessage());
+                log.warn("Attempt {} output validation error: {}", attempt, ex.getMessage());
+                lastException = ex;
+            } catch (JsonProcessingException ex) {
+                log.warn("Attempt {} output contained invalid mission JSON: {}", attempt, ex.getMessage());
                 lastException = ex;
             } catch (Exception ex) {
-                log.warn("Attempt {} failed to parse mission JSON output: {}", attempt, ex.getMessage());
+                log.warn("Attempt {} unexpected error while parsing mission output: {}", attempt, ex.getMessage());
                 lastException = ex;
             }
         }
@@ -152,6 +126,124 @@ public class CloudflareMissionGenerator implements MissionGenerator {
                 "Failed to generate a valid structured mission via Cloudflare Workers AI after " + MAX_RETRIES + " attempts. Error: " +
                 (lastException != null ? lastException.getMessage() : "Unknown error")
         );
+    }
+
+    private String executeInferenceRequest(CloudflareAiRequest aiRequest) {
+        String path = "/accounts/" + accountId + "/ai/run/" + model;
+
+        try {
+            return restClient.post()
+                    .uri(path)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(aiRequest)
+                    .retrieve()
+                    .body(String.class);
+
+        } catch (HttpStatusCodeException ex) {
+            int status = ex.getStatusCode().value();
+            log.error("Cloudflare Workers AI HTTP error status {}", status);
+            if (status == 429) {
+                throw new AiServiceUnavailableException(
+                        "Cloudflare Workers AI daily rate limit or free tier quota exceeded (HTTP 429). Please try again later.",
+                        ex
+                );
+            } else if (status == 401 || status == 403) {
+                throw new AiServiceUnavailableException(
+                        "Cloudflare Workers AI authentication failed (HTTP " + status + "). Please verify CLOUDFLARE_API_TOKEN.",
+                        ex
+                );
+            } else {
+                throw new AiServiceUnavailableException(
+                        "Cloudflare Workers AI request failed with HTTP " + status + ": " + ex.getStatusText(),
+                        ex
+                );
+            }
+        } catch (ResourceAccessException ex) {
+            log.error("Cloudflare Workers AI connection timed out or network error: {}", ex.getMessage());
+            throw new AiServiceUnavailableException(
+                    "Cloudflare Workers AI connection timed out or is unreachable. Please check network connectivity.",
+                    ex
+            );
+        } catch (RestClientException ex) {
+            log.error("Cloudflare Workers AI REST client error: {}", ex.getMessage());
+            throw new AiServiceUnavailableException(
+                    "Cloudflare Workers AI communication failed: " + ex.getMessage(),
+                    ex
+            );
+        }
+    }
+
+    private JsonNode parseResponseEnvelope(String rawEnvelopeJson) {
+        if (rawEnvelopeJson == null || rawEnvelopeJson.isBlank()) {
+            log.error("Cloudflare Workers AI returned empty HTTP response body");
+            throw new AiServiceUnavailableException("Cloudflare Workers AI returned an empty response body.");
+        }
+
+        try {
+            return objectMapper.readTree(rawEnvelopeJson);
+        } catch (JsonProcessingException ex) {
+            log.error("Failed to parse Cloudflare Workers AI response envelope as JSON: {}", ex.getMessage());
+            throw new AiServiceUnavailableException("Cloudflare Workers AI returned an invalid JSON response envelope.", ex);
+        }
+    }
+
+    private void validateCloudflareEnvelopeSuccess(JsonNode rootNode) {
+        boolean success = rootNode.path("success").asBoolean(false);
+        if (!success) {
+            String errorDetail = extractErrorDetails(rootNode);
+            log.warn("Cloudflare Workers AI returned unsuccessful response envelope: {}", errorDetail);
+            throw new AiServiceUnavailableException("Cloudflare Workers AI returned an error response: " + errorDetail);
+        }
+    }
+
+    private String extractResponseText(JsonNode rootNode) {
+        JsonNode resultNode = rootNode.path("result");
+        if (resultNode.isMissingNode() || resultNode.isNull()) {
+            log.error("Cloudflare Workers AI response envelope missing 'result' object");
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result' field.");
+        }
+
+        JsonNode responseNode = resultNode.path("response");
+        if (responseNode.isMissingNode() || responseNode.isNull() || !responseNode.isTextual()) {
+            log.error("Cloudflare Workers AI response missing or non-textual 'result.response' property");
+            throw new AiServiceUnavailableException("Cloudflare Workers AI response missing 'result.response' content.");
+        }
+
+        String rawResponseText = responseNode.asText();
+        log.debug("Cloudflare raw AI output: {}", rawResponseText);
+        return rawResponseText;
+    }
+
+    static String extractErrorDetails(JsonNode rootNode) {
+        List<String> details = new ArrayList<>();
+
+        JsonNode errorsNode = rootNode.path("errors");
+        if (errorsNode.isArray()) {
+            for (JsonNode err : errorsNode) {
+                if (err.isTextual()) {
+                    details.add(err.asText());
+                } else if (err.hasNonNull("message")) {
+                    String codePrefix = err.hasNonNull("code") ? ("[" + err.get("code").asText() + "] ") : "";
+                    details.add(codePrefix + err.get("message").asText());
+                } else {
+                    details.add(err.toString());
+                }
+            }
+        }
+
+        JsonNode messagesNode = rootNode.path("messages");
+        if (messagesNode.isArray()) {
+            for (JsonNode msg : messagesNode) {
+                if (msg.isTextual()) {
+                    details.add(msg.asText());
+                } else if (msg.hasNonNull("message")) {
+                    details.add(msg.get("message").asText());
+                }
+            }
+        }
+
+        return details.isEmpty() ? "Unknown upstream error" : String.join("; ", details);
     }
 
     static String extractJsonContent(String raw) {

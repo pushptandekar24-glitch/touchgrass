@@ -141,11 +141,143 @@ class CloudflareMissionGeneratorTest {
     }
 
     @Test
+    @DisplayName("Should successfully handle Cloudflare response envelope containing structured message objects")
+    void generateMission_StructuredMessagesObject_Success() {
+        String cloudflareResponseBody = """
+            {
+              "result": {
+                "response": "{\\"title\\":\\"Park Meadow Stroll\\",\\"description\\":\\"Ground yourself in the open lawn.\\",\\"tasks\\":[{\\"description\\":\\"Walk around perimeter\\",\\"estimatedMinutes\\":10}],\\"bonusTask\\":null}"
+              },
+              "success": true,
+              "errors": [],
+              "messages": [
+                {
+                  "code": 10001,
+                  "message": "Model execution note or billing notice"
+                }
+              ]
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer " + API_TOKEN))
+                .andRespond(withSuccess(cloudflareResponseBody, MediaType.APPLICATION_JSON));
+
+        MissionResponseDto result = generator.generateMission(createSampleRequest());
+
+        assertNotNull(result);
+        assertEquals("Park Meadow Stroll", result.getTitle());
+        assertEquals(1, result.getTasks().size());
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should fail fast on Cloudflare error envelope without retrying")
+    void generateMission_CloudflareErrorEnvelope() {
+        String errorResponseBody = """
+            {
+              "result": null,
+              "success": false,
+              "errors": [
+                {
+                  "code": 7003,
+                  "message": "Could not route to that model"
+                }
+              ],
+              "messages": []
+            }
+            """;
+
+        // Expect exactly 1 request (no retry for upstream API failure)
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(errorResponseBody, MediaType.APPLICATION_JSON));
+
+        AiServiceUnavailableException ex = assertThrows(
+                AiServiceUnavailableException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("Could not route to that model"));
+        assertTrue(ex.getMessage().contains("7003"));
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should fail fast when result object is null or missing")
+    void generateMission_MissingResultObject() {
+        String responseBody = """
+            {
+              "result": null,
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiServiceUnavailableException ex = assertThrows(
+                AiServiceUnavailableException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("missing 'result' field"));
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should fail fast when result.response is null or missing")
+    void generateMission_NullResultResponse() {
+        String responseBody = """
+            {
+              "result": {
+                "response": null
+              },
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiServiceUnavailableException ex = assertThrows(
+                AiServiceUnavailableException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("missing 'result.response' content"));
+        mockServer.verify();
+    }
+
+    @Test
     @DisplayName("Should map HTTP 401 authentication error to AiServiceUnavailableException")
     void generateMission_AuthFailed_401() {
         mockServer.expect(requestTo(EXPECTED_URL))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+
+        AiServiceUnavailableException ex = assertThrows(
+                AiServiceUnavailableException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("authentication failed"));
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("Should map HTTP 403 forbidden error to AiServiceUnavailableException")
+    void generateMission_AuthFailed_403() {
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN));
 
         AiServiceUnavailableException ex = assertThrows(
                 AiServiceUnavailableException.class,
@@ -197,11 +329,76 @@ class CloudflareMissionGeneratorTest {
     }
 
     @Test
+    @DisplayName("Should exhaust retries and throw MissionValidationException when model output is consistently invalid JSON")
+    void generateMission_InvalidMissionJson_ExhaustsRetries() {
+        String badResponseBody = """
+            {
+              "result": {
+                "response": "I cannot fulfill this request right now."
+              },
+              "success": true,
+              "errors": [],
+              "messages": []
+            }
+            """;
+
+        // MAX_RETRIES = 2
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(badResponseBody, MediaType.APPLICATION_JSON));
+
+        mockServer.expect(requestTo(EXPECTED_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(badResponseBody, MediaType.APPLICATION_JSON));
+
+        MissionValidationException ex = assertThrows(
+                MissionValidationException.class,
+                () -> generator.generateMission(createSampleRequest())
+        );
+
+        assertTrue(ex.getMessage().contains("Failed to generate a valid structured mission via Cloudflare Workers AI after 2 attempts"));
+        mockServer.verify();
+    }
+
+    @Test
     @DisplayName("extractJsonContent utility correctly extracts raw JSON from various formats")
     void extractJsonContent_Formats() {
         assertEquals("{\"test\":1}", CloudflareMissionGenerator.extractJsonContent("{\"test\":1}"));
         assertEquals("{\"test\":2}", CloudflareMissionGenerator.extractJsonContent("```json\n{\"test\":2}\n```"));
         assertEquals("{\"test\":3}", CloudflareMissionGenerator.extractJsonContent("Here is your JSON:\n{\"test\":3}\nHope you enjoy!"));
         assertNull(CloudflareMissionGenerator.extractJsonContent(null));
+    }
+
+    @Test
+    @DisplayName("CloudflareAiResponse DTO deserializes structured error and message objects correctly")
+    void cloudflareAiResponseDto_Deserialization() throws Exception {
+        String json = """
+            {
+              "result": {
+                "response": "test output"
+              },
+              "success": true,
+              "errors": [
+                {"code": 1000, "message": "Error message"}
+              ],
+              "messages": [
+                {"code": 2000, "message": "Notice message"}
+              ]
+            }
+            """;
+
+        com.wildstep.dto.cloudflare.CloudflareAiResponse dto = objectMapper.readValue(
+                json, com.wildstep.dto.cloudflare.CloudflareAiResponse.class
+        );
+
+        assertNotNull(dto);
+        assertTrue(dto.isSuccess());
+        assertEquals("test output", dto.getResult().getResponse());
+        assertEquals(1, dto.getErrors().size());
+        assertEquals(1000, dto.getErrors().get(0).getCode());
+        assertEquals("Error message", dto.getErrors().get(0).getMessage());
+        assertEquals(1, dto.getMessages().size());
+        assertEquals(2000, dto.getMessages().get(0).getCode());
+        assertEquals("Notice message", dto.getMessages().get(0).getMessage());
     }
 }

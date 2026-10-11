@@ -9,8 +9,8 @@ public class CloudflareAiResponse {
 
     private Result result;
     private boolean success;
-    private List<ErrorItem> errors;
-    private List<String> messages;
+    private List<MessageItem> errors;
+    private List<MessageItem> messages;
 
     public CloudflareAiResponse() {
     }
@@ -31,19 +31,19 @@ public class CloudflareAiResponse {
         this.success = success;
     }
 
-    public List<ErrorItem> getErrors() {
+    public List<MessageItem> getErrors() {
         return errors;
     }
 
-    public void setErrors(List<ErrorItem> errors) {
+    public void setErrors(List<MessageItem> errors) {
         this.errors = errors;
     }
 
-    public List<String> getMessages() {
+    public List<MessageItem> getMessages() {
         return messages;
     }
 
-    public void setMessages(List<String> messages) {
+    public void setMessages(List<MessageItem> messages) {
         this.messages = messages;
     }
 
@@ -68,14 +68,14 @@ public class CloudflareAiResponse {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class ErrorItem {
+    public static class MessageItem {
         private Integer code;
         private String message;
 
-        public ErrorItem() {
+        public MessageItem() {
         }
 
-        public ErrorItem(Integer code, String message) {
+        public MessageItem(Integer code, String message) {
             this.code = code;
             this.message = message;
         }
